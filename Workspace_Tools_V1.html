@@ -1,0 +1,2947 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Спасение рабочей области — скрипт для Qwen и Z.ai</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #0f1117; color: #e8eaf0;
+    font: 15px/1.6 -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 26px 20px 64px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 4px; }
+  h1 { font-size: 25px; margin: 0; color: #8fe38f; }
+  .badge {
+    background: #1d2b1d; color: #7fd67f; border: 1px solid #2f4a2f;
+    border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 600; letter-spacing: .3px;
+  }
+  .sub { color: #9aa3b5; margin: 6px 0 24px; max-width: 720px; }
+  h2 { font-size: 17.5px; margin: 28px 0 10px; color: #cdd6e4; }
+  p { margin: 8px 0; }
+  ol, ul { margin: 0; padding-left: 22px; }
+  ol li, ul li { margin: 8px 0; }
+  a { color: #8fb7ff; }
+  kbd {
+    background: #1a2130; border: 1px solid #33405a; border-bottom-width: 2px; border-radius: 5px;
+    padding: 1px 7px; font: 12.5px ui-monospace, Consolas, monospace; color: #bcd3ff; white-space: nowrap;
+  }
+  code.inline {
+    background: #1a2130; border: 1px solid #33405a; border-radius: 4px;
+    padding: 0 5px; font: 12.5px ui-monospace, Consolas, monospace; color: #bcd3ff;
+  }
+  .note {
+    background: #141a26; border: 1px solid #263149; border-left: 3px solid #4a7dff;
+    border-radius: 8px; padding: 10px 14px; margin: 14px 0; font-size: 13.5px; color: #b9c4d8;
+  }
+  .note.warn { border-left-color: #ffb454; }
+  .btns { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 6px; align-items: center; }
+  .btn {
+    display: inline-block; cursor: pointer; border-radius: 8px;
+    border: 1px solid #33405a; background: #1a2130; color: #e8eaf0;
+    padding: 9px 16px; font: 600 14px -apple-system, "Segoe UI", Arial, sans-serif;
+  }
+  .btn:hover { background: #22304a; }
+  .btn.main { background: #1d5c2c; border-color: #2f8a44; color: #eaffea; }
+  .btn.main:hover { background: #25753a; }
+  .btn[disabled] { opacity: .45; cursor: default; }
+  .hint { font-size: 12.5px; color: #8b94a7; }
+  .codebox {
+    background: #0d0d16; border: 1px solid #262c3d; border-radius: 10px; padding: 14px;
+    max-height: 420px; overflow: auto; white-space: pre; margin: 10px 0 0;
+    font: 11.5px/1.5 ui-monospace, Consolas, monospace; color: #b8c4da;
+  }
+  .cmdbuild {
+    background: #0d0d16; border: 1px solid #2c2c40; border-radius: 8px; padding: 10px 12px;
+    margin: 10px 0 0; white-space: pre-wrap; user-select: text;
+    font: 11.5px/1.65 ui-monospace, Consolas, monospace; color: #cbd5e6;
+  }
+  table { border-collapse: collapse; width: 100%; margin-top: 6px; }
+  th, td { border: 1px solid #2c2c40; padding: 7px 10px; text-align: left; font-size: 13.5px; vertical-align: top; }
+  th { background: #1d2130; color: #8fb7ff; font-weight: 600; }
+  footer { margin-top: 36px; color: #7c8496; font-size: 12.5px; border-top: 1px solid #232a3a; padding-top: 14px; }
+
+  /* ================= раскладка: инструкция + превью справа ================= */
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 28px; align-items: start; }
+  .side { position: relative; }
+  @media (max-width: 1020px) {
+    .cols { grid-template-columns: 1fr; }
+    .side { order: -1; }
+    .preview { position: static !important; }
+    .pv-caption { text-align: left !important; }
+  }
+
+  /* ================= превью панели (закреплено сверху справа) ================= */
+  .preview { position: sticky; top: 16px; }
+  .pv-caption { color: #5f6a80; font: 11.5px/1.3 ui-monospace, Consolas, monospace; text-align: right; padding: 0 2px 6px; }
+  .pv-panel {
+    background: #151521; border: 1px solid #3a3a55; border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.55);
+    color: #eee; font: 11.5px/1.45 ui-monospace, Consolas, monospace;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .pv-hd { background: #1d2b1d; border-bottom: 1px solid #2c3c2c; padding: 8px 10px; display: flex; gap: 6px; align-items: center; }
+  .pv-hd b { color: #7fd67f; font-size: 11.5px; flex: 1; letter-spacing: .3px; }
+  .pv-ico { background: #1a2130; border: 1px solid #33405a; border-radius: 6px; padding: 4px 7px; color: #e8eaf0; font-size: 10.5px; line-height: 1; }
+  .pv-x { background: #4a1d1d; border-color: #8a2f2f; color: #ffeaea; }
+  .pv-tabs { display: flex; gap: 4px; padding: 7px 10px 0; }
+  .pv-tab { flex: 1; text-align: center; background: #1a2130; border: 1px solid #33405a; border-radius: 6px; padding: 5px 0; font-size: 10.5px; color: #e8eaf0; }
+  .pv-tab.on { background: #24405e; border-color: #4a6ea0; color: #dceaff; }
+  .pv-body { padding: 8px 10px 10px; }
+  .pv-mem { color: #99aadd; font-size: 10.5px; }
+  .pv-bar { height: 9px; background: #0d0d16; border: 1px solid #2c2c40; border-radius: 4px; margin: 5px 0 9px; overflow: hidden; }
+  .pv-bar i { display: block; height: 100%; width: 27%; background: linear-gradient(90deg, #3aa757, #7fd67f); }
+  .pv-tools { display: flex; gap: 5px; align-items: center; margin-bottom: 8px; }
+  .pv-sort, .pv-mini, .pv-flt {
+    background: #1a2130; border: 1px solid #33405a; border-radius: 6px;
+    padding: 5px 8px; font-size: 10.5px; color: #e8eaf0; white-space: nowrap;
+  }
+  .pv-mini { width: 26px; text-align: center; padding: 5px 0; font-size: 12px; }
+  .pv-flt { flex: 1; color: #6b7280; }
+  .pv-tree { background: #0d0d16; border: 1px solid #2c2c40; border-radius: 4px; padding: 6px; }
+  .pv-row { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .pv-row .nm { overflow: hidden; text-overflow: ellipsis; }
+  .pv-row .sz { margin-left: auto; color: #9adc9a; font-size: 10.5px; padding-left: 8px; }
+  .pv-arw { color: #8fb7ff; width: 12px; display: inline-block; text-align: center; font-size: 10px; }
+  .pv-chk { color: #8fb7ff; font-size: 11px; }
+  .pv-dir { color: #ffd479; }
+  .pv-sub { padding-left: 16px; }
+  .pv-stat { color: #99aadd; font-size: 10.5px; margin: 7px 0 6px; }
+  .pv-more { color: #e0b060; font-size: 10.5px; padding: 6px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pv-more b { border: 1px solid #6b5a2a; background: #221c10; border-radius: 4px; padding: 1px 5px; font-weight: normal; }
+  .pv-log { background: #0d0d16; border: 1px solid #2c2c40; border-radius: 4px; padding: 5px 6px; height: 84px; overflow: hidden; color: #cfd6e4; font-size: 10.5px; }
+  .pv-log div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pv-err { color: #ff8a8a; }
+  .pv-new { color: #ffd479; }
+  .pv-ok { color: #8fe38f; }
+  .pv-foot { display: flex; gap: 5px; margin-top: 8px; border-top: 1px solid #2c2c40; padding-top: 8px; flex-wrap: wrap; }
+  .pv-foot span { border-radius: 6px; padding: 5px 8px; font-size: 10.5px; border: 1px solid #33405a; background: #1a2130; }
+  .pv-prog { flex: 0 0 100%; height: 8px; background: #0d0d16; border: 1px solid #2c2c40; border-radius: 4px; overflow: hidden; margin-bottom: 2px; }
+  .pv-prog i { display: block; height: 100%; width: 62%; background: linear-gradient(90deg, #2f8a44, #7fd67f); }
+  .pv-go { background: #1d5c2c !important; border-color: #2f8a44 !important; color: #eaffea; }
+  .pv-stop { background: #4a1d1d !important; border-color: #8a2f2f !important; color: #ffeaea; }
+</style>
+</head>
+<body>
+
+<!--
+  ══════════════════════════════════════════════════════════════════════════════
+  ПРАВИЛА ДЛЯ АГЕНТОВ И РАЗРАБОТЧИКОВ.  НА СТРАНИЦЕ НЕ ОТОБРАЖАЕТСЯ.
+
+  Этот файл — ОДИН АВТОНОМНЫЙ HTML: инструкция по запуску скрипта в консоли,
+  превью интерфейса и сам код скрипта внутри (блок <pre id="code">).
+
+  1. ТЕМА: только запуск скрипта в консоли браузера. НЕ упоминать установку,
+     chrome://extensions, манифест — ни в тексте, ни в ссылках.
+  2. БЛОК ПРЕВЬЮ <div class="preview" id="preview" data-rule="do-not-remove">
+     УДАЛЯТЬ НЕЛЬЗЯ. Это витрина: человек открывает файл и сразу видит панель.
+     На широком экране превью закреплено справа сверху (position: sticky).
+     Сохраняй id="preview", data-rule="do-not-remove" и контейнер
+     id="preview-slot" — на них завязано самовосстановление в скрипте внизу.
+  3. КОД СКРИПТА ЖИВЁТ В БЛОКЕ <pre id="code"> И ВСТАВЛЯЕТСЯ В НЕГО ЦЕЛИКОМ.
+     В исходнике на его месте стоит метка @CODE@; её заменяет команда сборки
+     (она показана на странице, пока код не встроен). Не удаляй #code,
+     кнопки #copyBtn / #dlBtn / #showBtn и не переноси код в другой файл:
+     страница должна оставаться ОДНИМ независимым HTML.
+  4. НЕ добавляй разделы «что нового», «исправлено в версии …», списки правок.
+  5. Ничего не грузи с внешних CDN: страница должна работать из локального файла.
+  6. После обновления content.js пересобери встроенный код командой
+     node rebuild_page.cjs  (она всегда актуальна и заменяет блок #code целиком).
+     Первая вставка на чистой странице делается командой из раздела 3.
+  ══════════════════════════════════════════════════════════════════════════════
+-->
+
+<div class="wrap">
+  <header>
+    <h1>Спасение рабочей области чата</h1>
+    <span class="badge">СКРИПТ ДЛЯ QWEN И Z.AI</span>
+  </header>
+  <p class="sub">
+    Инструкция по запуску скрипта в консоли браузера. Скрипт выгружает файлы рабочей области
+    любого чата на <b>chat.qwen.ai</b> и <b>chat.z.ai</b>: боковая панель, дерево с размерами,
+    один ZIP со структурой папок, прогресс и отмена. Код находится прямо на этой странице —
+    ставить ничего не нужно, только скопировать и вставить в консоль.
+  </p>
+
+  <div class="cols">
+    <!-- ================= ЛЕВАЯ КОЛОНКА: ИНСТРУКЦИЯ ================= -->
+    <div class="main">
+
+      <h2>1. Как применить</h2>
+      <ol class="steps">
+        <li>Откройте в браузере <b>chat.qwen.ai</b> или <b>chat.z.ai</b> и войдите в аккаунт.</li>
+        <li>Откройте чат, у которого есть панель <b>«Рабочая область»</b> с файлами.
+            Адрес страницы должен быть вида <code class="inline">chat.qwen.ai/c/&lt;длинный-id&gt;</code>
+            (у z.ai — <code class="inline">chat.z.ai/c/&lt;id&gt;</code> или публичная ссылка <code class="inline">/s/&lt;id&gt;</code>).</li>
+        <li>Нажмите <kbd>F12</kbd> (или <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd>) — откроются инструменты разработчика.</li>
+        <li>Перейдите на вкладку <b>Console</b> (Консоль).</li>
+        <li>Если консоль предупреждает про вставку текста — наберите <kbd>allow</kbd> и нажмите <kbd>Enter</kbd>.</li>
+        <li>Оставьте консоль открытой и вернитесь на эту страницу. В разделе
+            <b>«3. Скрипт»</b> нажмите <b>«СКОПИРОВАТЬ СКРИПТ»</b> — код уже внутри файла,
+            скачивать ничего не нужно.</li>
+        <li>Кликните внутрь консоли, вставьте код (<kbd>Ctrl</kbd>+<kbd>V</kbd>) и нажмите <kbd>Enter</kbd>.</li>
+        <li>В правом верхнем углу страницы появится панель <b>WORKSPACE V1</b> — такая же, как на макете справа.
+            Её можно перетаскивать за зелёную шапку, кнопки ◀ ▶ прижимают к краям, «—» сворачивает.</li>
+        <li>В дереве отметьте галочками нужные файлы или папки (галочка на папке выделяет всё внутри).
+            Кнопка <b>☑</b> рядом с фильтром отмечает всё, повторное нажатие снимает все отметки.
+            Если файлов очень много, список идёт порциями: прокручивайте вниз — следующие
+            файлы догружаются сами (или нажмите «показать ещё»).</li>
+        <li>Нажмите <b>«СКАЧАТЬ ZIP»</b> — браузер сохранит один архив со структурой папок. Распакуйте его в любую папку.</li>
+        <li>Нужны файлы из <b>другого чата</b>? Перейдите в него и нажмите в панели <b>«ОБНОВИТЬ»</b> —
+            заново открывать консоль и вставлять код не нужно.</li>
+      </ol>
+
+      <div class="note">
+        Скрипт универсален: id чата берётся из адреса страницы, поэтому подходит для любого чата
+        с рабочей областью. После перезагрузки страницы панель исчезает — код нужно вставить снова.
+      </div>
+      <div class="note warn">
+        Скрипт ничего не отправляет на сторонние серверы: все запросы идут только к тому сайту,
+        на котором вы его запустили, от имени вашей сессии. Архив собирается прямо в браузере.
+      </div>
+
+      <h2>2. Если что-то пошло не так</h2>
+      <ol class="steps">
+        <li><b>Панель не появилась</b> — проверьте, что вы на странице <code class="inline">/c/&lt;id&gt;</code>,
+            после вставки кода нажали <kbd>Enter</kbd> и в консоли нет красного текста.</li>
+        <li><b>«путей: 0»</b> — у этого чата пустая рабочая область или список ещё не загружен:
+            сверните и раскройте штатную панель файлов сайта и нажмите «ОБНОВИТЬ».</li>
+        <li><b>Нет размеров у файлов</b> — в «НАСТРОЙКАХ» выберите «показывать размеры всех файлов»
+            или нажмите «УЗНАТЬ РАЗМЕРЫ СЕЙЧАС». На z.ai размер берётся из ответа их API;
+            «—» остаётся у файлов крупнее 16 МБ и у тех, что не влезли в лимит подсчёта (32 МБ за круг) —
+            нажмите кнопку ещё раз или включите автоопределение.</li>
+        <li><b>z.ai: список пуст</b> — песочница спит: нажмите «ОБНОВИТЬ» ещё раз и подождите ~10 секунд.</li>
+        <li><b>Имена файлов в архиве исковерканы</b> — архив помечен флагом UTF-8; если архиватор очень
+            старый, откройте его через 7-Zip.</li>
+        <li><b>Очень много файлов</b> — при объёме свыше ~900 МБ архив делится на части
+            <code class="inline">имя_part2.zip</code> и т. д.; распакуйте все части в одну папку.</li>
+        <li><b>Нужна помощь</b> — в панели «НАСТРОЙКИ» → «СДЕЛАТЬ ДИАГНОСТИКУ»: отчёт скопируется в
+            буфер обмена вместе с журналом.</li>
+      </ol>
+
+      <h2>3. Скрипт</h2>
+      <div class="btns">
+        <button class="btn main" id="copyBtn" type="button">📋 Скопировать скрипт</button>
+        <button class="btn" id="dlBtn" type="button">💾 Скачать .js</button>
+        <button class="btn" id="showBtn" type="button">Показать код</button>
+        <span class="hint" id="copyStatus"></span>
+      </div>
+
+      <div class="note warn" id="codeMissing" hidden>
+        <b>Код ещё не встроен в этот файл.</b> Выполните один раз команду в PowerShell — она вставит
+        содержимое <code class="inline">content.js</code> внутрь страницы, и файл станет автономным:
+        <pre class="cmdbuild" id="buildCmd">cd "C:\Users\Sergey\Documents\Workspace Rescue V1"
+Copy-Item Workspace_Tools_V1.html Workspace_Tools_V1.html.bak -Force
+$page = [IO.File]::ReadAllText("$PWD\Workspace_Tools_V1.html")
+$code = [IO.File]::ReadAllText("$PWD\content.js")
+$page = $page.Replace('hidden&gt;@CODE@&lt;/pre&gt;', 'hidden&gt;' + [System.Net.WebUtility]::HtmlEncode($code) + '&lt;/pre&gt;')
+[IO.File]::WriteAllText("$PWD\Workspace_Tools_V1.html", $page, (New-Object Text.UTF8Encoding($false)))
+Get-Item Workspace_Tools_V1.html | Select-Object Name, Length</pre>
+        После этого страницу можно открывать где угодно: она больше ничего не требует.
+      </div>
+
+      <pre id="code" class="codebox" hidden>/* ============================================================================
+   workspace_manager.js  (V1)  —  файловый менеджер рабочей области чата
+   ----------------------------------------------------------------------------
+   САЙТЫ: chat.qwen.ai (готовый пресет) · chat.z.ai (готовый пресет) ·
+   любые другие (авторежим с ловлей шаблона ссылки).
+
+   НОВОЕ В ВЕРСИИ V1 (первый публичный релиз; включает всё из v19/v20):
+     1. ПРОИЗВОДИТЕЛЬНОСТЬ: сборка ZIP (CRC32 + упаковка) вынесена в Web Worker —
+        интерфейс сайта не подтормаживает даже на сотнях МБ. Дерево перерисовывается
+        только при реальных изменениях; сканирование трафика инкрементальное;
+        автообновление выполняется в requestIdleCallback (в «паузах» страницы).
+     2. СОСТОЯНИЕ ПАПОК СОХРАНЯЕТСЯ: «ОТМЕТИТЬ ВСЁ» / «СНЯТЬ ВСЁ» / фильтр /
+        автообновление больше НЕ разворачивают свёрнутые папки.
+     3. РАЗМЕРЫ: у каждого файла справа виден размер; у папок — сумма размеров
+        вложенных файлов (≈ если известны не все). Размеры берутся из ответов API,
+        а при необходимости добираются HEAD/Range-запросами (настройка в «Настройках»).
+     4. КОНТЕКСТНОЕ МЕНЮ (правый клик по файлу): «Открыть в новой вкладке»
+        (текст/HTML/картинки/PDF браузер покажет прямо во вкладке),
+        «Копировать прямую ссылку», «Скачать файл», «Копировать путь».
+     5. СТРЕЛКИ ПАПОК рисуются собственные (▸/▾) — отображаются одинаково на
+        любом сайте, включая chat.z.ai, чей CSS раньше глушил системные маркеры.
+     6. КНОПКА «ОБНОВИТЬ» исправлена (раньше клик по ней считался «тихим»
+        автообновлением и не выводил результат в лог).
+     7. ИМЯ ZIP — по содержимому: одна папка → «имя_папки.zip», один файл →
+        «имя_файла.zip», несколько корней → «rescue_ГГГГ-ММ-ДД_ЧЧММ.zip».
+        Части больших архивов: «имя_part2.zip», …
+     8. ОБЩИЙ РАЗМЕР ОТМЕЧЕННОГО показывается в строке статистики (≈ при
+        неполных данных) и в подсказке кнопки «СКАЧАТЬ ZIP».
+     9. ЛОГ БЕЗ ШУМА: автообновление пишет только «появился новый файл: …» —
+        и больше ничего. Служебные сообщения — только при ручном ОБНОВИТЬ.
+    10. «СТОП» отменяет всё МГНОВЕННО: прерываются идущие запросы (AbortController),
+        начатый архив НЕ сохраняется, ничего не скачивается.
+    11. ДВЕ ВКЛАДКИ: «ГЛАВНАЯ» и «НАСТРОЙКИ». Диагностика (СЫРОЙ ТРАФИК,
+        КОПИРОВАТЬ ТРАФИК/ДИАГН./ЛОГ) перенесена в «Настройки».
+    12. КНОПКА-СКРЕПКА 📎 в шапке: закрепляет панель у левого/правого края во всю
+        высоту экрана. Закрепление запоминается и переживает обновление страницы
+        (расширение само восстановит закреплённую панель).
+    13. Нет личных данных — можно свободно распространять.
+    14. В «Настройках» — кнопки быстрого открытия chat.qwen.ai и chat.z.ai.
+    15. В «Настройках» — описание: суть программы и её преимущества.
+    16. ШКАЛА ПАМЯТИ рабочей области: занято / всего / свободно (общий объём
+        определяется из API или задаётся вручную в настройках).
+    17. Совместимость: Chrome 111+ и Яндекс Браузер (Chromium 111+); при отсутствии
+        world:"MAIN" расширение внедряет скрипт запасным способом (см. background.js).
+    18. БЕЗ ОГРАНИЧЕНИЙ ПО ОБЪЁМУ: архивы автоматически делятся на части
+        (900 МБ / 6000 файлов), а одиночные файлы крупнее 700 МБ сохраняются
+        отдельными файлами мимо ZIP — скачивается всё, любого размера.
+    19. БОКОВАЯ ПАНЕЛЬ КАК В FlowPick: по клику на иконку панель встаёт СПРАВА
+        во всю высоту и «отделяется» от страницы (контент сайта сдвигается).
+        Внутренний край панели тянется мышью — ширина меняется. Скрепка
+        (теперь аккуратная SVG-кнопка) по-прежнему крепит/открепляет.
+    20. КНОПКИ ВСЕГДА ВИДНЫ: нижняя панель кнопок зафиксирована и не уходит
+        за экран даже при тысячах файлов — дерево скроллится внутри.
+    21. ПРОГРЕСС-БАР скачивания: фаза («скачано N из M», «сборка ZIP в фоне…»),
+        больше не нужно гадать, идёт загрузка или зависло.
+    22. ИМЯ ZIP — по ОБЩЕЙ папке выделения: скачали вложенную папку «3» —
+        архив назовётся «3.zip», а не по верхнему уровню «1».
+    23. РАЗМЕРЫ ТОЧНЕЕ: ответы с чужим content-type (JSON-ошибка или
+        HTML-заглушка вместо файла) больше не принимаются за размер —
+        одинаковые «137 Б» у всех файлов исчезли.
+    24. РУССКИЙ ЯЗЫК при просмотре во вкладке: текстовые blob-файлы открываются
+        с charset=utf-8 — кириллица без «иероглифов».
+    25. КОНТЕКСТНОЕ МЕНЮ ПАПКИ: «Оглавление папки» (страница-список с прямыми
+        ссылками), «Страница чата», копирование пути, отметка/снятие.
+    26. СОРТИРОВКА ДЕРЕВА (кнопка у фильтра): по алфавиту / по размеру /
+        как отдал сервер. Кнопка «СЫРОЙ ТРАФИК» убрана — вся диагностика
+        (состояние, источники, последние запросы, ошибки) в «КОПИРОВАТЬ ДИАГН.».
+
+   ИСПРАВЛЕНО В 1.1.0 (аудит проекта):
+     + СМЕНА ЧАТА ЧИСТИТ СОСТОЯНИЕ: файлы, размеры, ссылки и перехваченный трафик
+       прошлого чата больше не «переезжают» в новый (раньше дерево показывало
+       файлы предыдущего чата, пока не подтянется новый список).
+     + ВОССТАНОВЛЕНИЕ ПАНЕЛИ после F5 идёт через фон (scripting), а не вставкой
+       тега: работает и на сайтах, где CSP запрещает внешние скрипты.
+     + Z.AI: режим (чат или публичная ссылка) определяется сразу, поэтому «АРХИВ
+       ВСЕЙ ОБЛАСТИ», прямые ссылки и размеры работают даже если список пуст.
+     + КРУПНЫЕ ФАЙЛЫ с чужого CDN: обход CORS качает их кусками (Range), а не
+       одним сообщением — прежнее ограничение по размеру снято.
+     + ПАМЯТЬ: сборка ZIP отдаёт буферы в воркер без копии (архивы до 900 МБ
+       больше не требуют двойного объёма), кэш blob-ссылок ограничен, а откат
+       при падении воркера перезапрашивает файлы вместо записи битого архива.
+     + СКОРОСТЬ: автообновление больше не разбирает JSON всего трафика заново
+       (кэш по источникам), поиск шаблона ссылки идёт по индексу, а не перебором.
+     + МЕЛОЧИ: текст в логе выделяется мышью; кнопка сортировки подписана
+       «СОРТ: …»; «СТОП» прерывает и запросы размеров; «УЗНАТЬ РАЗМЕРЫ СЕЙЧАС»
+       перепроверяет файлы, размер которых определить не удалось.
+   ДОБАВЛЕНО В 1.1.0 (по заявкам):
+     + РАЗМЕРЫ НА Z.AI: их API не отдаёт размер списком, поэтому берём его
+       из ответа на запрос содержимого (только заголовок, тело гасим).
+     + ИТОГ ПО ВСЕМ ОТМЕЧЕННЫМ: строка «отмечено …» теперь считает все выбранные
+       файлы, а не только попавшие под фильтр; при фильтре рядом видно, сколько
+       из них в текущем отборе.
+     + ЗАКРЫТИЕ ПАНЕЛИ ЗАПОМИНАЕТСЯ: нажали «×» — после F5 панель сама больше
+       не появляется; вернуть её можно кликом по иконке.
+     + КОМПАКТНЫЕ КНОПКИ ОТМЕТКИ: «☑ / ☐» вместо длинных надписей — поле фильтра
+       больше не сжимается.
+     + ЦВЕТНОЙ ЖУРНАЛ: ошибки красным, новые файлы жёлтым, сохранения зелёным.
+     + ОБЩИЙ ОБЪЁМ ОБЛАСТИ: если API отдаёт лимит в ГБ/МБ — шкала его подхватит.
+   ========================================================================== */
+(function () {
+  'use strict';
+  /* Версию меняем только при несовместимых изменениях интерфейса.
+     При загрузке НОВОЙ сборки панель пересоздаётся сама, без F5 (см. в конце). */
+  const WZR_BUILD = '1.1.9';
+  try { console.info('WORKSPACE V1: загружена сборка ' + WZR_BUILD); } catch (e) {}
+  let DEAD = false;                      // после выгрузки всё замолкает
+  /* AbortError — штатная ситуация (СТОП, таймауты, отмена чтения): не засоряем консоль */
+  addEventListener('unhandledrejection', e =&gt; {
+    try { if (e &amp;&amp; e.reason &amp;&amp; (e.reason.name === 'AbortError' || /aborted/i.test(e.reason.message || ''))) e.preventDefault(); } catch (err) {}
+  });
+  const was = window.__wzrBuild;
+  window.__wzrV1 = true;
+  window.__wzrBuild = WZR_BUILD;
+  if (was === WZR_BUILD) {
+    /* Повторное внедрение (клик по иконке, автовосстановление после F5) — это не
+       ошибка: панель уже стоит. Показываем её, если она была скрыта, и молча
+       выходим, чтобы не сыпать предупреждениями в консоль сайта. */
+    try { window.dispatchEvent(new CustomEvent('wzr:show')); } catch (e) {}
+    return;
+  }
+  if (was) console.info('WORKSPACE: сборка ' + was + ' -&gt; ' + WZR_BUILD + ', панель переустанавливается без F5');
+  /* снять панель прошлой сборки, чтобы не осталось двух панелей */
+  try {
+    const old = document.getElementById('wzrPanel');
+    if (old) old.remove();
+    const ocm = document.getElementById('wzrCM'); if (ocm) ocm.remove();
+    const ost = [...document.querySelectorAll('style')].find(s =&gt; s.textContent &amp;&amp; s.textContent.includes('#wzrPanel'));
+    if (ost) ost.remove();
+  } catch (e) {}
+
+  /* --------------------------- собственные стили --------------------------- */
+  const ST = document.createElement('style');
+  ST.textContent =
+    '#wzrPanel,#wzrPanel *{box-sizing:border-box}' +
+    '#wzrPanel button{appearance:auto!important;-webkit-appearance:button!important;background:#1a2130!important;' +
+    'color:#e8eaf0!important;border:1px solid #33405a!important;border-radius:6px!important;padding:5px 10px!important;' +
+    'font:600 13.5px/1.2 monospace!important;cursor:pointer!important;margin:0!important;text-transform:none!important;' +
+    'box-shadow:none!important;letter-spacing:0!important;opacity:1!important;visibility:visible!important;display:inline-block!important}' +
+    '#wzrPanel button:hover{background:#22304a!important}' +
+    '#wzrPanel button.wzrGo{background:#1d5c2c!important;border-color:#2f8a44!important;color:#eaffea!important}' +
+    '#wzrPanel button.wzrX{background:#4a1d1d!important;border-color:#8a2f2f!important;color:#ffeaea!important}' +
+    '#wzrPanel button.wzrPinned{background:#1d5c2c!important;border-color:#2f8a44!important}' +
+    '#wzrPanel button.wzrHide{display:none!important}' +
+    '#wzrPanel input,#wzrPanel textarea,#wzrPanel select{background:#0d0d16!important;color:#eee!important;border:1px solid #2c2c40!important;' +
+    'border-radius:4px!important;font:13.5px monospace!important;padding:3px 6px!important;user-select:text!important}' +
+    '#wzrPanel textarea{cursor:text}' +
+    '#wzrPanel label{color:#eee}' +
+    /* дерево: строки, размеры, стрелки — всё своё, не зависит от CSS сайта */
+    '#wzrPanel details{display:block!important;margin:0!important;padding:0!important;background:none!important;border:0!important}' +
+    '#wzrPanel summary{display:flex!important;align-items:center;gap:4px;list-style:none!important;cursor:pointer;padding:1px 2px!important;' +
+    'margin:0!important;background:none!important;border:0!important;color:#eee!important;font:inherit!important}' +
+    '#wzrPanel summary::-webkit-details-marker{display:none!important}' +
+    '#wzrPanel summary::marker{content:""!important}' +
+    '#wzrPanel .wzrArw{display:inline-block;width:12px;flex:0 0 12px;text-align:center;color:#8fb7ff;font:12px monospace;transition:transform .12s}' +
+    '#wzrPanel details[open]&gt;summary .wzrArw{transform:rotate(90deg)}' +
+    '#wzrPanel .wzrRow{display:flex;align-items:center;gap:4px;padding:1px 2px}' +
+    '#wzrPanel .wzrRow:hover{background:#1c2436}' +
+    '#wzrPanel .wzrNm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto;min-width:24px}' +
+    '#wzrPanel .wzrSz{margin-left:auto;flex:0 0 auto;padding-left:8px;color:#9adc9a;font-size:12.5px;white-space:nowrap;opacity:.85}' +
+    /* вкладки */
+    '#wzrPanel .wzrTabs{display:flex;gap:4px;padding:6px 10px 0}' +
+    '#wzrPanel .wzrTab{flex:1;text-align:center!important}' +
+    '#wzrPanel .wzrTabOn{background:#24405e!important;border-color:#4a6ea0!important;color:#dceaff!important}' +
+    /* память */
+    '#wzrPanel #memTxt{color:#9ad;font-size:13px;margin:4px 0 2px}' +
+    '#wzrPanel #memBar{height:7px;background:#0d0d16;border:1px solid #2c2c40;border-radius:4px;overflow:hidden}' +
+    '#wzrPanel #memFill{height:100%;width:0;background:#3aa757;transition:width .3s}' +
+    /* настройки */
+    '#wzrPanel .wzrSec{border:1px solid #2c2c40;border-radius:6px;padding:7px 9px;margin-bottom:7px;background:#11111c}' +
+    '#wzrPanel .wzrSec&gt;b{color:#8fb7ff}' +
+    '#wzrPanel .wzrAbout{margin:4px 0 0;padding-left:16px;color:#cfd6e4}' +
+    '#wzrPanel .wzrAbout li{margin:2px 0}' +
+    /* контекстное меню */
+    '#wzrCM{position:fixed;z-index:2147483647;background:#1c1c2c;border:1px solid #44446a;border-radius:6px;' +
+    'box-shadow:0 6px 20px rgba(0,0,0,.6);padding:4px;display:none;min-width:220px;font:14px/1.3 monospace;user-select:none}' +
+    '#wzrCM .wzrCMi{padding:5px 9px;border-radius:4px;cursor:pointer;color:#eee;white-space:nowrap}' +
+    '#wzrCM .wzrCMi:hover{background:#2c3c5c}' +
+    /* закреплённая панель (геометрию задаёт applyDock инлайном, чтобы «—» мог свернуть) */
+    '#wzrPanel.docked{border-radius:0!important}' +
+    '#wzrPanel.docked #bodyMain{display:flex;flex-direction:column;flex:1;min-height:0}' +
+    /* ДЕРЕВО — единственная прокручиваемая часть панели. Оно занимает всё
+       свободное место между панелью инструментов и строкой статистики, поэтому
+       список файлов всегда доходит до нижней панели с кнопками, а сама нижняя
+       панель не сдвигается (ни при 10 файлах, ни при 1000). */
+    '#wzrPanel #tree{flex:1 1 0!important;min-height:0!important;max-height:none!important}' +
+    /* память и строка состояния уступают место дереву в низком окне */
+    '#wzrPanel #mem,#wzrPanel #c{flex:0 1 auto!important;min-height:0!important;overflow:hidden}' +
+    /* кнопка-скрепка (SVG), прогресс-бар, грип ширины, нижняя панель кнопок */
+    '#wzrPanel #pin{display:inline-flex!important;align-items:center;justify-content:center;padding:5px 8px!important}' +
+    '#wzrPanel #pin svg{fill:currentColor;transform:rotate(45deg);transition:transform .15s}' +
+    '#wzrPanel #pin.wzrPinned svg{transform:rotate(0)}' +
+    '#wzrPanel #prog{display:none;margin:0 0 6px;flex:0 0 100%}' +
+    '#wzrPanel #progTxt{color:#9ad;font-size:13px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '#wzrPanel #progBar{height:8px;background:#0d0d16;border:1px solid #2c2c40;border-radius:4px;overflow:hidden}' +
+    '#wzrPanel #progFill{height:100%;width:0;background:linear-gradient(90deg,#2f8a44,#7fd67f);transition:width .2s}' +
+    '#wzrPanel #progFill.ind{width:40%!important;background:linear-gradient(90deg,#22304a,#8fb7ff,#22304a);background-size:200% 100%;animation:wzrSlide 1.1s linear infinite;transition:none}' +
+    '@keyframes wzrSlide{from{background-position:0 0}to{background-position:-200% 0}}' +
+    '#wzrPanel #grip{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:5}' +
+    '#wzrPanel #grip:hover{background:rgba(143,183,255,.22)}' +
+    '#wzrPanel #gripL{position:absolute;top:0;bottom:0;left:-4px;width:8px;cursor:ew-resize;z-index:5}' +
+    '#wzrPanel .wzrCorner{position:absolute;width:16px;height:16px;z-index:7}' +
+    '#wzrPanel #gripBR{right:0;bottom:0;cursor:nwse-resize}' +
+    '#wzrPanel #gripBL{left:0;bottom:0;cursor:nesw-resize}' +
+    '#wzrPanel .wzrCorner:hover{background:rgba(143,183,255,.22)}' +
+    '#wzrPanel.docked .wzrCorner,#wzrPanel.wzrCollapsed .wzrCorner{display:none!important}' +
+    '#wzrPanel #gripL:hover{background:rgba(143,183,255,.22)}' +
+    '#wzrPanel #gripB{position:absolute;left:10px;right:10px;bottom:0;height:7px;cursor:ns-resize;z-index:6;border-radius:0 0 8px 8px}' +
+    '#wzrPanel #gripB:hover{background:rgba(143,183,255,.22)}' +
+    '#wzrPanel #foot{border-top:1px solid #2c2c40;margin-top:8px;padding-top:8px;display:flex;flex-wrap:wrap;gap:5px;flex:0 0 auto;position:relative;z-index:2;background:#151521}' +
+    /* --- ЖЁСТКАЯ РАСКЛАДКА: !important, чтобы правила сайта не ломали панель --- */
+    '#wzrPanel #bodyMain{display:flex!important;flex-direction:column!important;flex:1 1 0!important;min-height:0!important;overflow:hidden!important}' +
+    '#wzrPanel #tree{flex:1 1 auto!important;min-height:0!important;max-height:none!important;overflow-y:auto!important}' +
+    '#wzrPanel #stat{flex:0 0 auto!important}' +
+    '#wzrPanel #mem,#wzrPanel #c{flex:0 0 auto!important}' +
+    '#wzrPanel .wzrLog{height:88px!important;max-height:88px!important;min-height:88px!important;overflow:auto!important;flex:0 0 auto!important}' +
+    '#wzrPanel #foot{display:flex!important;flex-wrap:wrap!important;flex:0 0 auto!important}' +
+    /* --- средний масштаб --- */
+    '#wzrPanel.wzrFontMd{font:13.5px/1.45 monospace!important}' +
+    '#wzrPanel.wzrFontMd button{font:600 12.5px/1.2 monospace!important}' +
+    '#wzrPanel.wzrFontMd input,#wzrPanel.wzrFontMd textarea,#wzrPanel.wzrFontMd select{font:12.5px monospace!important}' +
+    '#wzrPanel.wzrFontMd .wzrArw{font:11px monospace!important}' +
+    '#wzrPanel.wzrFontMd .wzrSz{font-size:11.5px!important}' +
+    '#wzrPanel.wzrFontMd #memTxt,#wzrPanel.wzrFontMd #progTxt{font-size:12px!important}' +
+    '#wzrPanel.wzrFontMd .wzrLog{font:12.5px/1.4 monospace!important}' +
+    '#wzrPanel.wzrFontMd .wzrIconBtn{font-size:15px!important;width:30px!important;padding:5px 0!important}' +
+    '#wzrPanel.wzrFontMd .wzrSec div{font-size:12.5px!important}' +
+    '#wzrPanel.wzrFontMd .wzrTab{font:12.5px/1.2 monospace!important}' +
+    /* --- мелкий масштаб --- */
+    '#wzrPanel.wzrFontSm{font:12.5px/1.45 monospace!important}' +
+    '#wzrPanel.wzrFontSm button{font:600 11.5px/1.2 monospace!important}' +
+    '#wzrPanel.wzrFontSm input,#wzrPanel.wzrFontSm textarea,#wzrPanel.wzrFontSm select{font:11.5px monospace!important}' +
+    '#wzrPanel.wzrFontSm .wzrArw{font:10px monospace!important}' +
+    '#wzrPanel.wzrFontSm .wzrSz{font-size:10.5px!important}' +
+    '#wzrPanel.wzrFontSm #memTxt,#wzrPanel.wzrFontSm #progTxt{font-size:11px!important}' +
+    '#wzrPanel.wzrFontSm .wzrLog{font:11.5px/1.4 monospace!important}' +
+    '#wzrPanel.wzrFontSm .wzrIconBtn{font-size:13px!important;width:26px!important;padding:5px 0!important}' +
+    '#wzrPanel.wzrFontSm .wzrSec div{font-size:11.5px!important}' +
+    '#wzrPanel.wzrFontSm .wzrTab{font:11.5px/1.2 monospace!important}' +
+    /* --- свёрнутая панель: остаётся только зелёная шапка --- */
+    '#wzrPanel.wzrCollapsed{height:auto!important;max-height:none!important}' +
+    '#wzrPanel.wzrCollapsed .wzrTabs,#wzrPanel.wzrCollapsed #bodyMain,#wzrPanel.wzrCollapsed #bodySet,#wzrPanel.wzrCollapsed #gripB,#wzrPanel.wzrCollapsed #prog{display:none!important}' +
+    /* переключение вкладок: селектор сильнее защитного display:flex!important */
+    '#wzrPanel #bodyMain.wzrHidden,#wzrPanel #bodySet.wzrHidden{display:none!important}' +
+    '#wzrPanel.wzrNoSizes [data-sz],#wzrPanel.wzrNoSizes [data-szd]{display:none!important}' +
+    /* компактные кнопки отметки и цветной журнал */
+    '#wzrPanel .wzrIconBtn{flex:0 0 auto!important;width:34px!important;padding:6px 0!important;text-align:center!important;font-size:17px!important}' +
+    /* ЖУРНАЛ уступает место дереву: высоту считает layoutMain (жёсткое правило —
+       сначала место файлам, потом журналу), а внизу он сжимается сам, но никогда
+       не выдавливает нижнюю панель с кнопками за край экрана. */
+    '#wzrPanel .wzrLog{height:88px;max-height:88px;min-height:0;overflow:auto;margin-top:6px;flex:0 0 auto;background:#0d0d16!important;border:1px solid #2c2c40!important;border-radius:4px!important;padding:4px 6px!important;font:13.5px/1.4 monospace!important;color:#cfd6e4;user-select:text!important}' +
+    '#wzrPanel .wzrLog div{white-space:pre-wrap;word-break:break-word}' +
+    '#wzrPanel .wzrErr{color:#ff8a8a!important}' +
+    '#wzrPanel .wzrNew{color:#ffd479!important}' +
+    '#wzrPanel .wzrOk{color:#8fe38f!important}';
+  (document.head || document.documentElement).appendChild(ST);
+
+  const HOST = location.hostname;
+  const IS_QWEN = /(^|\.)chat\.qwen\.ai$/.test(HOST);
+  const IS_ZAI = /(^|\.)chat\.z\.ai$/.test(HOST);
+  const getChat = () =&gt; { const m = location.pathname.match(/\/c\/([0-9a-f-]{8,})/i); return m ? m[1] : null; };
+  const qid = () =&gt; getChat() || (location.pathname.match(/\/s\/([0-9a-f-]{8,})/i) || [])[1] || null;
+  const ASSET_EXT = /\.(js|css|mjs|map|woff2?|ttf|eot|svg|ico|manifest|webmanifest)(\?|$)/i;
+  const FILE_EXT = /\.[A-Za-z0-9]{1,10}$/;
+  const STOP_SEG = new Set(['api', 'v1', 'v2', 'v3', 'chat', 'chats', 'workspace', 'workspace-files',
+    'files', 'file', 'download', 'content', 'raw', 'output', 'artifact', 'artifacts', 'attachment', 'attachments']);
+  const TELEM = /blank\.gif|\/e\.gif|zcode\.|sdata\.chatglm|pd=zai|bt=er|google-analytics/i;
+  const ZAI_WS = location.origin + '/api/v1/web-dev/workspaces';
+  const zaiToken = () =&gt; { try { return localStorage.getItem('token') || ''; } catch (e) { return ''; } };
+  let zaiMode = null, zaiId = null, zaiWsId = null;
+  const zaiDiag = { lsStatus: null, lsBody: '', wake: [], token: false };
+  let quotaHint = null;                       // {total,used,free} — если API отдал квоту
+
+  /* --------------------- настройки UI (переживают F5) ---------------------- */
+  const UI_KEY = '__wzrV1_ui', UI_KEY_OLD = '__wzr20_ui';
+  let UI = { dock: 'right', tab: 'main', sizesMode: 'full', quotaGB: 0, sort: 'alpha', w: 0, h: 0, hidden: false };
+  try {
+    let s = JSON.parse(localStorage.getItem(UI_KEY) || 'null');
+    /* раньше ширина упиралась в минимум 320 — такое значение считаем «не задано» */
+    if (!s) s = JSON.parse(localStorage.getItem(UI_KEY_OLD) || 'null');   // миграция с прошлой версии
+    if (s &amp;&amp; typeof s === 'object') {
+      UI = Object.assign(UI, s);
+      if (!UI.sizesMode) UI.sizesMode = (s.autoSizes === false) ? 'off' : 'full';   // миграция с галочки
+      delete UI.autoSizes;
+      if (['full', 'off'].indexOf(UI.sizesMode) &lt; 0) UI.sizesMode = 'full';
+      if (UI.w === 320) UI.w = 0;                 // «застрявшая» минимальная ширина — сбрасываем
+    }
+  } catch (e) {}
+  function saveUI() { try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (e) {} }
+
+  /* ------------------------- режим показа размеров ------------------------ */
+  function showingSizes() { return (UI.sizesMode || 'full') !== 'off'; }
+  function shownSizeOf(p) {
+    const s = sizeOf(p);
+    if (s == null || !showingSizes()) return null;
+    return s;
+  }
+  /* применить режим: скрыть память, колонку размеров и кнопку ручного запроса */
+  function applySizesMode(request) {
+    const off = !showingSizes();
+    try { P.classList.toggle('wzrNoSizes', off); } catch (e) {}
+    const mem = $('#mem');
+    if (mem) mem.style.display = off ? 'none' : '';
+    const sn = $('#szNow');
+    if (sn) sn.style.display = off ? 'none' : '';
+    try { updateAllSizes(); stat(); updateMem(); } catch (e) {}
+    if (request &amp;&amp; !off) { NEG.clear(); idle(() =&gt; resolveSizes(false)); }
+  }
+
+  /* ------------------------------ перехваты ------------------------------- */
+  const origFetch = window.fetch;
+  const captured = new Map(), reqLog = [];
+  const CAP_MAX = 80 * 1024 * 1024, CAP_ONE = 25 * 1024 * 1024;   // лимиты МЕТАДАННЫХ (не загрузок!)
+  let capBytes = 0;
+  function push(src, text) {
+    if (capBytes &gt; CAP_MAX || !text || text.length &gt; CAP_ONE || captured.has(src)) return;
+    capBytes += text.length;
+    try { captured.set(src, JSON.parse(text)); } catch (e) {}
+  }
+  window.fetch = async function (...a) {
+    const u = typeof a[0] === 'string' ? a[0] : (a[0] &amp;&amp; a[0].url) || String(a[0]);
+    reqLog.push(u); if (reqLog.length &gt; 4000) reqLog.shift();
+    const res = await origFetch.apply(this, a);
+    try {
+      const ct = res.headers.get('content-type') || '';
+      const cl = +(res.headers.get('content-length') || 0);
+      if (ct.includes('json') &amp;&amp; !captured.has(u) &amp;&amp; (!cl || cl &lt; CAP_ONE))
+        res.clone().text().then(t =&gt; push(u, t)).catch(() =&gt; {});
+    } catch (e) {}
+    return res;
+  };
+  const oOpen = XMLHttpRequest.prototype.open, oSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function (m, u) { this.__u = String(u); reqLog.push(this.__u); if (reqLog.length &gt; 4000) reqLog.shift(); return oOpen.apply(this, arguments); };
+  XMLHttpRequest.prototype.send = function () {
+    this.addEventListener('load', function () {
+      try { if ((this.getResponseHeader('content-type') || '').includes('json') &amp;&amp; !captured.has(this.__u)) push(this.__u, this.responseText); } catch (e) {}
+    });
+    return oSend.apply(this, arguments);
+  };
+
+  /* каналы ловли ссылки: performance, &lt;a&gt;, window.open, blob */
+  const extraUrls = [];
+  /* extraUrls хранит до 2000 последних адресов. Каждому потребителю (поиск путей
+     и добыча CDN-ссылок) нужен только «свежий» хвост — держим два курсора,
+     иначе буфер целиком перебирался на каждом обновлении. */
+  const cursors = { discover: 0, harvest: 0 };
+  function newExtraUrls(who) {
+    if (extraUrls.length &lt; cursors[who]) cursors[who] = 0;      // старые записи вытеснены
+    const out = extraUrls.slice(cursors[who]);
+    cursors[who] = extraUrls.length;
+    return out;
+  }
+  function noteUrl(u, how) {
+    if (!u || !/^https?:|^blob:/.test(u)) return;
+    extraUrls.push({ u, how });
+    if (extraUrls.length &gt; 2000) {
+      extraUrls.shift();
+      if (cursors.discover &gt; 0) cursors.discover--;
+      if (cursors.harvest &gt; 0) cursors.harvest--;
+    }
+  }
+  const perfSeen = new Set();
+  let perfIdx = 0;
+  function pollPerf() {
+    try {
+      const es = performance.getEntriesByType('resource');
+      if (es.length &lt; perfIdx) perfIdx = 0;                 // буфер очистили — начать заново
+      for (let i = perfIdx; i &lt; es.length; i++) {
+        const e = es[i];
+        if (perfSeen.has(e.name)) continue;
+        perfSeen.add(e.name);
+        noteUrl(e.name, 'perf:' + e.initiatorType);
+      }
+      perfIdx = es.length;
+    } catch (e) {}
+  }
+  const oClick = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () { try { noteUrl(this.href, 'a.click'); } catch (e) {} return oClick.apply(this, arguments); };
+  document.addEventListener('click', e =&gt; {
+    try { const a = e.target &amp;&amp; e.target.closest &amp;&amp; e.target.closest('a[href]'); if (a) noteUrl(a.href, 'a.dom'); } catch (err) {}
+  }, true);
+  const oWinOpen = window.open;
+  window.open = function (u) { try { noteUrl(typeof u === 'string' ? u : (u &amp;&amp; u.url), 'window.open'); } catch (e) {} return oWinOpen.apply(this, arguments); };
+  /* blob-ссылки страницы: держим только самые свежие, иначе карта росла бы без
+     предела и держала в памяти сотни мегабайт (это была утечка). */
+  const BLOBS_MAX = 64;
+  const blobs = new Map();
+  const oCU = URL.createObjectURL;
+  URL.createObjectURL = function (b) {
+    const u = oCU.call(URL, b);
+    try {
+      if (b instanceof Blob &amp;&amp; b.size &lt; 64 * 1024 * 1024) {
+        blobs.set(u, b);
+        while (blobs.size &gt; BLOBS_MAX) blobs.delete(blobs.keys().next().value);
+      }
+    } catch (e) {}
+    return u;
+  };
+
+  /* --------------------------------- состояние ----------------------------- */
+  let PATHS = [], URLMAP = new Map(), SIZEMAP = new Map(), NEG = new Set();
+  /* Размеры из API часто приходят с коротким ключом («index.html» вместо «src/index.html»).
+     Храним такие значения отдельно по имени файла: если имя уникально — размер
+     подставляется в дерево, при конфликте имён значение помечается как спорное. */
+  const SIZE_BY_NAME = new Map();
+  const PROBE_WHY = {};                     // почему не удалось узнать размер (для журнала)
+  let PROBE_BUDGET = 32 * 1024 * 1024;      // сколько байт максимум читаем за круг подсчёта
+  const okSize = v =&gt; typeof v === 'number' &amp;&amp; Number.isFinite(v) &amp;&amp; v &gt;= 0;
+  function setSize(path, value) {
+    if (!path || !okSize(value)) return;
+    SIZEMAP.set(path, value);
+    const name = path.split('/').pop();
+    if (!name) return;
+    const prev = SIZE_BY_NAME.get(name);
+    if (prev === undefined) SIZE_BY_NAME.set(name, value);
+    else if (prev !== value) SIZE_BY_NAME.set(name, null);   // неоднозначно — не используем
+  }
+  function sizeOf(p) {
+    const own = SIZEMAP.get(p);
+    if (okSize(own)) return own;
+    const byName = SIZE_BY_NAME.get(p.split('/').pop());
+    return okSize(byName) ? byName : null;
+  }
+  let TEMPLATE = null, SEL = new Set(), OPEN_DIRS = new Set(), firstRender = true;
+  let STOP = false, busy = false, armed = -1, runAC = null, SILENT = false;
+  let curDirSizes = new Map();
+  const WORKERS = 6, SPLIT_BYTES = 900 * 1024 * 1024, SPLIT_COUNT = 6000, HUGE_BYTES = 700 * 1024 * 1024;
+
+  /* --------------------------------- утилиты ------------------------------- */
+  function human(n) {
+    if (n == null || !isFinite(n)) return '';
+    if (n &lt; 1024) return n + ' Б';
+    const u = ['КБ', 'МБ', 'ГБ', 'ТБ']; let i = -1;
+    do { n /= 1024; i++; } while (n &gt;= 1024 &amp;&amp; i &lt; u.length - 1);
+    /* Math.round() возвращает ЧИСЛО, а у числа нет .replace: на файлах от 100 КБ
+       падало всё обновление дерева («replace is not a function» в консоли).
+       Приводим значение к строке. */
+    const v = n &gt;= 100 ? String(Math.round(n)) : n &gt;= 10 ? n.toFixed(1) : n.toFixed(2);
+    return v.replace(/\.0+$/, '') + ' ' + u[i];
+  }
+  const esc = s =&gt; String(s).replace(/&amp;/g, '&amp;amp;').replace(/&lt;/g, '&amp;lt;').replace(/&gt;/g, '&amp;gt;').replace(/"/g, '&amp;quot;');
+  /* человекочитаемые ошибки: сначала по-русски, оригинал — в скобках */
+  function errRu(msg) {
+    const s = String(msg == null ? '' : msg);
+    const map = [
+      [/Failed to fetch|NetworkError|Load failed/i, 'сеть недоступна или запрос заблокирован'],
+      [/aborted|abort/i, 'запрос отменён'],
+      [/is not a function|is not defined|Cannot read propert/i, 'внутренняя ошибка разбора ответа сайта'],
+      [/Unexpected token|not valid JSON|Unexpected end of JSON/i, 'ответ сайта не является JSON'],
+      [/timeout|timed out/i, 'превышено время ожидания ответа'],
+      [/CORS|cross-origin/i, 'браузер заблокировал запрос (CORS)'],
+      [/HTTP 401|HTTP 403|\b40[13]\b/, 'нет доступа — войдите в аккаунт'],
+      [/HTTP 404|\b404\b/, 'файл не найден (404)'],
+      [/HTTP 429|\b429\b/, 'слишком много запросов (429) — сайт временно ограничил'],
+      [/HTTP 5\d\d|\b5\d\d\b/, 'ошибка на сервере сайта'],
+    ];
+    for (const [re, ru] of map) if (re.test(s)) return ru + ' (' + s.slice(0, 90) + ')';
+    return s.slice(0, 140);
+  }
+  /* только настоящие строки: API может отдать объект/число вместо пути —
+     раньше это роняло refresh() с «.replace is not a function» */
+  function normPath(p) {
+    if (typeof p !== 'string') return '';
+    p = p.trim().replace(/^\/+/, '').replace(/\/{2,}/g, '/').replace(/\/+$/, '');
+    return (p &amp;&amp; !TELEM.test(p) &amp;&amp; !p.includes('\u0000')) ? p : '';
+  }
+  function newAbort() { const ac = new AbortController(); return ac; }
+  const idle = cb =&gt; (window.requestIdleCallback ? requestIdleCallback(cb, { timeout: 4000 }) : setTimeout(cb, 60));
+
+  /* --------------------- список путей из трафика страницы ------------------ */
+  function relFromUrl(u) {
+    try {
+      const o = new URL(u, location.href);
+      if (ASSET_EXT.test(o.pathname) || TELEM.test(u)) return null;
+      if (!FILE_EXT.test(decodeURIComponent(o.pathname))) return null;
+      const same = o.hostname === location.hostname;
+      const hasChat = getChat() &amp;&amp; u.includes(getChat());
+      if (!same &amp;&amp; !hasChat &amp;&amp; !/workspace|files?|artifact|attachment|output/i.test(o.pathname + o.search)) return null;
+      let seg = decodeURIComponent(o.pathname).split('/').filter(Boolean);
+      while (seg.length &amp;&amp; (STOP_SEG.has(seg[0].toLowerCase()) || seg[0] === getChat() || /^v\d+$/.test(seg[0]))) seg.shift();
+      if (seg.length &lt; 2) return null;
+      return seg.join('/');
+    } catch (e) { return null; }
+  }
+  function cleanUrl(raw) {
+    try {
+      const o = new URL(raw);
+      for (const k of [...o.searchParams.keys()]) {
+        if (/process|resize|thumb|watermark|x-oss/i.test(k) || /image\/resize|thumb|!\d+/i.test(o.searchParams.get(k) || '')) o.searchParams.delete(k);
+      }
+      return o.href;
+    } catch (e) { return raw; }
+  }
+  /* Добыча CDN-ссылок Qwen. Раньше на каждом автообновлении заново разбирались
+     ВСЕ перехваченные ответы (десятки мегабайт JSON) — это была основная
+     нагрузка фона. Теперь каждый ответ разбирается один раз, результат копится
+     в HARVEST, а наружу отдаётся и число новых ссылок. */
+  const HARVEST = new Map(), harvestSeen = new Set();
+  const CDN_RE = /https:\/\/cdn\.qwenlm\.ai\/[^\s"'())]+/g;
+  function relFromCdn(raw) {
+    try {
+      const o = new URL(raw.replace(/\\u0026/g, '&amp;'));
+      const seg = decodeURIComponent(o.pathname).split('/').filter(Boolean);
+      let i = 0;
+      if (seg[0] === 'output') i = 1;
+      if (/^[0-9a-f-]{20,}$/.test(seg[i] || '')) i++;
+      const rel = seg.slice(i).join('/');
+      return (rel &amp;&amp; FILE_EXT.test(rel)) ? { rel, url: cleanUrl(o.href) } : null;
+    } catch (e) { return null; }
+  }
+  function harvestFromJson(json, out) {
+    let txt; try { txt = JSON.stringify(json); } catch (e) { return; }
+    CDN_RE.lastIndex = 0;
+    let m; while ((m = CDN_RE.exec(txt))) { const r = relFromCdn(m[0]); if (r) out.set(r.rel, r.url); }
+    (function walk(n) {
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      if (!n || typeof n !== 'object') return;
+      for (const k of Object.keys(n)) {
+        const v = n[k];
+        if (typeof v === 'string' &amp;&amp; /(original|direct|full|source|raw)_?url$/i.test(k) &amp;&amp; /^https?:/.test(v)) {
+          const r = relFromCdn(v); if (r) out.set(r.rel, r.url);
+        } else walk(v);
+      }
+    })(json);
+  }
+  function harvestQwen() {
+    let added = 0;
+    for (const [src, json] of captured) {
+      if (harvestSeen.has(src)) continue;
+      harvestSeen.add(src);
+      const was = HARVEST.size;
+      harvestFromJson(json, HARVEST);
+      added += HARVEST.size - was;
+    }
+    pollPerf();
+    for (const { u } of newExtraUrls('harvest')) {
+      CDN_RE.lastIndex = 0;
+      let m; while ((m = CDN_RE.exec(u))) {
+        const r = relFromCdn(m[0]);
+        if (r &amp;&amp; !HARVEST.has(r.rel)) { HARVEST.set(r.rel, r.url); added++; }
+      }
+    }
+    return { map: HARVEST, added };
+  }
+  const NAME_KEY = k =&gt; /(path|filepath|file_path|relative_path|full_path|name|filename|file_name)$/i.test(k);
+  const URL_KEY = k =&gt; /(^|_)(url|download_url|cdn_url|file_url|src|href)$/i.test(k);
+  const SIZE_KEY = k =&gt; /^(size|bytes|file_size|filesize|file_bytes|content_length|length)$/i.test(k);
+  /* инкрементальное сканирование перехваченного JSON: каждый ответ смотрим один раз */
+  const scannedSrc = new Set();
+  const DISC_PATHS = new Set();
+  function scanJsonForSizes(node, basePath) {
+    (function walk(n) {
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      if (!n || typeof n !== 'object') return;
+      const nk = Object.keys(n).find(NAME_KEY);
+      if (nk &amp;&amp; typeof n[nk] === 'string') {
+        const rel = normPath(n[nk]);
+        if (rel &amp;&amp; FILE_EXT.test(rel)) {
+          const sk = Object.keys(n).find(k =&gt; SIZE_KEY(k) &amp;&amp; okSize(n[k]));
+          if (sk) setSize(rel, n[sk]);
+        }
+      }
+      for (const k of Object.keys(n)) walk(n[k]);
+    })(node);
+  }
+  const QUOTA_BAD = /token|rate|rpm|tpm|retry|attempt|timeout|delay|count|width|height|duration|ms$|_ms/i;
+  function scanQuota(j) {
+    try {
+      const num = v =&gt; (typeof v === 'number' &amp;&amp; isFinite(v)) ? v : (typeof v === 'string' &amp;&amp; /^\d{5,}$/.test(v) ? +v : null);
+      (function walk(n) {
+        if (!n || typeof n !== 'object') return;
+        if (Array.isArray(n)) { n.forEach(walk); return; }
+        for (const k of Object.keys(n)) {
+          const v = num(n[k]);
+          const storage = /(storage|workspace|disk|space|quota)/i.test(k);
+          if (v != null &amp;&amp; storage &amp;&amp; /(_gb|_gib|gb)$/i.test(k) &amp;&amp; v &gt; 0 &amp;&amp; v &lt;= 100000) {
+            /* лимит задан в гигабайтах — 10 ГБ и т.п. */
+            quotaHint = quotaHint || { src: 'api' };
+            quotaHint.total = Math.max(quotaHint.total || 0, v * 1073741824);
+          } else if (v != null &amp;&amp; storage &amp;&amp; /(_mb|_mib|mb)$/i.test(k) &amp;&amp; v &gt; 0 &amp;&amp; v &lt;= 100000) {
+            quotaHint = quotaHint || { src: 'api' };
+            quotaHint.total = Math.max(quotaHint.total || 0, v * 1048576);
+          } else if (v != null &amp;&amp; v &gt; 1e5 &amp;&amp; !QUOTA_BAD.test(k)) {
+            quotaHint = quotaHint || { src: 'api' };
+            if (/total|quota|capacity|limit|max/i.test(k)) quotaHint.total = Math.max(quotaHint.total || 0, v);
+            else if (/used/i.test(k)) quotaHint.used = Math.max(quotaHint.used || 0, v);
+            else if (/free|available|remaining/i.test(k)) quotaHint.free = Math.max(quotaHint.free || 0, v);
+          } else if (n[k] &amp;&amp; typeof n[k] === 'object') walk(n[k]);
+        }
+      })(j);
+    } catch (e) {}
+  }
+  function discover() {
+    for (const [src, json] of captured) {
+      if (scannedSrc.has(src)) continue;
+      scannedSrc.add(src);
+      scanJsonForSizes(json);
+      scanQuota(json);
+      (function walk(node) {
+        if (Array.isArray(node)) { for (const x of node) { if (typeof x === 'string') { const rel = normPath(x); if (rel.includes('/') &amp;&amp; FILE_EXT.test(rel) &amp;&amp; !TELEM.test(rel)) DISC_PATHS.add(rel); } else walk(x); } return; }
+        if (!node || typeof node !== 'object') return;
+        const nk = Object.keys(node).find(NAME_KEY);
+        if (nk &amp;&amp; typeof node[nk] === 'string') {
+          const rel = normPath(node[nk]);
+          if (rel.includes('/') &amp;&amp; FILE_EXT.test(rel)) {
+            const uk = Object.keys(node).find(k =&gt; URL_KEY(k) &amp;&amp; /^https?:/.test(node[k] || ''));
+            DISC_PATHS.add(rel); if (uk &amp;&amp; !URLMAP.has(rel)) URLMAP.set(rel, node[uk]);
+            return;
+          }
+        }
+        for (const k of Object.keys(node)) walk(node[k]);
+      })(json);
+    }
+    pollPerf();
+    for (const { u } of newExtraUrls('discover')) {
+      const rel = relFromUrl(u);
+      if (!rel) continue;
+      DISC_PATHS.add(rel);
+      if (/^https?:/.test(u) &amp;&amp; !URLMAP.has(rel)) URLMAP.set(rel, u);
+    }
+    return { paths: [...DISC_PATHS].sort() };
+  }
+
+  function urlFor(p) {
+    if (URLMAP.has(p)) return URLMAP.get(p);
+    if (IS_QWEN &amp;&amp; getChat()) return '/api/v2/chat/' + getChat() + '/' + p;
+    if (IS_ZAI &amp;&amp; zaiMode) return 'zai:' + p;
+    if (TEMPLATE) return TEMPLATE.replace('{P}', p.split('/').map(encodeURIComponent).join('/'))
+      .replace('{E}', encodeURIComponent(p)).replace('{R}', p);
+    return null;
+  }
+  function absUrl(u) { try { return u.startsWith('http') ? u : new URL(u, location.href).href; } catch (e) { return u; } }
+
+  /* Режим z.ai (обычный чат или публичная страница /s/…) нужен и до первого
+     удачного списка: от него зависят прямые ссылки, размеры и серверный архив. */
+  function setZaiTarget() {
+    const ms = location.pathname.match(/\/s\/([0-9a-f-]{8,})/i);
+    zaiMode = ms ? 'share' : 'chat';
+    zaiId = ms ? ms[1] : getChat();
+  }
+
+  /* ---------- точный пресет Z.AI (найден в их frontend-бандле) ---------- */
+  async function zaiWake() {
+    const tok = zaiToken();
+    const H = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok };
+    if (zaiMode === 'chat') {
+      try {
+        const ac = new AbortController(); const to = setTimeout(() =&gt; ac.abort(), 5000);
+        const r = await fetch(location.origin + '/api/v1/web-dev/workspaces/up', { method: 'POST', signal: ac.signal,
+          headers: { Accept: 'text/event-stream', 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+          body: JSON.stringify({ chatId: zaiId, workspace_id: zaiWsId || undefined }) });
+        zaiDiag.wake.push('up:' + r.status);
+        let rd = null;
+        try { if (r.body) { rd = r.body.getReader(); await rd.read(); } } catch (e) {}
+        clearTimeout(to);
+        try { if (rd) await rd.cancel(); } catch (e) {}          // отменяем чтение, не рвём запрос
+        rd = null;
+      } catch (e) { zaiDiag.wake.push('up:' + (e.name || e.message)); }
+    }
+    if (zaiMode === 'chat') {
+      try {
+        const r = await fetch(location.origin + '/api/v1/chats/' + zaiId, { headers: H });
+        if (r.ok) { const j = await r.json(); const b = j &amp;&amp; j.chat &amp;&amp; j.chat.meta &amp;&amp; j.chat.meta.bot_id;
+          if (b) { zaiWsId = b; zaiDiag.wake.push('bot_id=' + b); } } }
+      catch (e) { zaiDiag.wake.push('chat-meta:' + e.message); }
+      try { const r = await fetch(ZAI_WS + '/user-fc', { headers: H }); zaiDiag.wake.push('user-fc:' + r.status); } catch (e) {}
+      for (const p of ['package.json', 'index.html', 'README.md']) {
+        try { await fetch(ZAI_WS + '/files/content', { method: 'POST', headers: H, body: JSON.stringify({ chatId: zaiId, rev: 'HEAD', filepath: p, workspace_id: zaiWsId || undefined }) }); zaiDiag.wake.push('wake:' + p); } catch (e) {}
+      }
+    }
+  }
+  async function zaiFetchWsId() {
+    if (zaiWsId || zaiMode !== 'chat') return;
+    const H = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + zaiToken() };
+    const grab = j =&gt; { let found = null; (function w(n) { if (found || !n || typeof n !== 'object') return;
+      if (Array.isArray(n)) { n.forEach(w); return; }
+      for (const k of Object.keys(n)) { if (/^(bot_id|workspace_id)$/i.test(k) &amp;&amp; typeof n[k] === 'string' &amp;&amp; n[k]) { found = n[k]; return; } w(n[k]); } })(j); return found; };
+    for (const u of [location.origin + '/api/v1/chats/' + zaiId, ZAI_WS.replace(/\/workspaces$/, '') + '/deployments?chatId=' + zaiId]) {
+      try { const r = await fetch(u, { headers: H }); if (r.ok) { const j = await r.json(); scanQuota(j); const f = grab(j); if (f) { zaiWsId = f; zaiDiag.wake.push('wsId:' + f); return; } } } catch (e) {}
+    }
+  }
+  async function zaiList() {
+    if (!zaiMode) return [];
+    const share = zaiMode === 'share';
+    const url = ZAI_WS + (share ? '/share/files/ls-tree' : '/files/ls-tree');
+    const body = share ? { share_id: zaiId } : { chatId: zaiId };
+    if (!share &amp;&amp; zaiWsId) body.workspace_id = zaiWsId;
+    zaiDiag.token = !!zaiToken();
+    try {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + zaiToken() }, body: JSON.stringify(body) });
+      const txt = await r.text();
+      zaiDiag.lsStatus = r.status; zaiDiag.lsBody = txt.slice(0, 200);
+      if (!r.ok) { if (r.status === 403) log('Z.ai ls-tree 403 — нет токена, войдите в аккаунт.'); return []; }
+      let j; try { j = JSON.parse(txt); } catch (e) { log('Z.ai ls-tree: не JSON: ' + zaiDiag.lsBody.slice(0, 80)); return []; }
+      scanQuota(j);
+      const out = new Set();
+      const isPathStr = v =&gt; typeof v === 'string' &amp;&amp; v &amp;&amp; !TELEM.test(v) &amp;&amp; (v.includes('/') || /\.[A-Za-z0-9]{1,10}$/.test(v));
+      (function walk(n, prefix) {
+        if (Array.isArray(n)) { for (const x of n) { if (isPathStr(x)) { const rel = normPath(x); if (rel &amp;&amp; !rel.endsWith('/') &amp;&amp; FILE_EXT.test(rel)) out.add(rel); } else walk(x, prefix); } return; }
+        if (!n || typeof n !== 'object') return;
+        /* узел дерева: {name/path, size?, children?} */
+        const nk = Object.keys(n).find(k =&gt; /^(name|path|filepath|file_name)$/i.test(k) &amp;&amp; typeof n[k] === 'string');
+        let myPath = prefix;
+        if (nk) {
+          const nm = String(n[nk]);
+          myPath = normPath(nm.includes('/') ? nm : (prefix ? prefix + '/' + nm : nm));
+          const sk = Object.keys(n).find(k =&gt; SIZE_KEY(k));
+          const isDir = !FILE_EXT.test(myPath) || (n.children || n.files || n.entries || (typeof n.is_dir === 'boolean' &amp;&amp; n.is_dir) || (typeof n.type === 'string' &amp;&amp; /dir|folder/i.test(n.type)));
+          if (!isDir &amp;&amp; myPath) out.add(myPath);
+          if (sk &amp;&amp; okSize(n[sk]) &amp;&amp; myPath &amp;&amp; FILE_EXT.test(myPath)) setSize(myPath, n[sk]);
+        }
+        for (const k of Object.keys(n)) { const v = n[k]; if (v &amp;&amp; typeof v === 'object') walk(v, /^(children|files|entries|nodes|items)$/i.test(k) ? myPath : prefix); }
+      })(j, '');
+      if (!out.size) { /* запасной плоский разбор */
+        (function walk2(n) {
+          if (Array.isArray(n)) { for (const x of n) { if (isPathStr(x)) { const rel = normPath(x); if (rel &amp;&amp; FILE_EXT.test(rel)) out.add(rel); } else walk2(x); } return; }
+          if (!n || typeof n !== 'object') return;
+          for (const k of Object.keys(n)) { const v = n[k];
+            if (typeof v === 'string' &amp;&amp; /^(path|filepath|name|file_name)$/i.test(k) &amp;&amp; isPathStr(v)) { const rel = normPath(v); if (rel &amp;&amp; FILE_EXT.test(rel)) out.add(rel); }
+            else walk2(v); }
+        })(j);
+      }
+      scanJsonForSizes(j);
+      zaiDiag.parsed = out.size;
+      if (r.status === 200 &amp;&amp; out.size === 0) log('Z.ai ls-tree 200, но распознано 0 путей. Тело: ' + zaiDiag.lsBody.slice(0, 120));
+      return [...out];
+    } catch (e) { log('Z.ai ls-tree ошибка: ' + e.message); return []; }
+  }
+  async function zaiContent(p, signal, sizeOnly) {
+    const share = zaiMode === 'share';
+    const url = ZAI_WS + (share ? '/share/files/content' : '/files/content');
+    const body = share ? { share_id: zaiId, rev: 'HEAD', filepath: p } : { chatId: zaiId, rev: 'HEAD', filepath: p };
+    if (!share &amp;&amp; zaiWsId) body.workspace_id = zaiWsId;
+    try {
+      const r = await fetch(url, { method: 'POST', signal, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + zaiToken() }, body: JSON.stringify(body) });
+      if (!r.ok) return null;
+      const ct = r.headers.get('content-type') || '';
+      if (sizeOnly) {
+        /* Размер у z.ai: их API отдаёт СОДЕРЖИМОЕ, а не метаданные, поэтому:
+           1) есть content-length — берём его;
+           2) заголовка нет (обычный поток) — считаем байты, читая тело (до 16 МБ);
+           3) пришёл JSON — ищем явное поле размера, иначе считаем текст
+              (base64 раскодируем в настоящий размер). */
+        const note = (why) =&gt; { PROBE_WHY[why] = (PROBE_WHY[why] || 0) + 1; return null; };
+        if (!ct.includes('json')) {
+          const cl = r.headers.get('content-length');
+          if (cl &amp;&amp; +cl &gt; 0) {
+            try { if (r.body) await r.body.cancel(); } catch (e) {}
+            return +cl;
+          }
+          if (!r.body) return note('пустой ответ');
+          if (PROBE_BUDGET &lt;= 0) { try { if (r.body) await r.body.cancel(); } catch (e) {} return note('исчерпан лимит подсчёта (32 МБ за круг)'); }
+          const rd = r.body.getReader();
+          let total = 0;
+          try {
+            for (;;) {
+              const chunk = await rd.read();
+              if (chunk.done) break;
+              const n = chunk.value ? chunk.value.length : 0;
+              total += n;
+              PROBE_BUDGET -= n;
+              if (total &gt; 16 * 1024 * 1024) {
+                try { await rd.cancel(); } catch (e) {}
+                return note('файл больше 16 МБ');
+              }
+              if (PROBE_BUDGET &lt;= 0) {
+                try { await rd.cancel(); } catch (e) {}
+                return note('исчерпан лимит подсчёта (32 МБ за круг)');
+              }
+            }
+          } catch (e) { return note('поток прервался'); }
+          return total &gt; 0 ? total : note('пустой ответ');
+        }
+        let j = null;
+        try { j = await r.json(); } catch (e) { return note('JSON не разобрался'); }
+        let num = null;
+        (function walk(n, d) {
+          if (num != null || !n || typeof n !== 'object' || d &gt; 4) return;
+          if (Array.isArray(n)) { n.forEach(x =&gt; walk(x, d + 1)); return; }
+          for (const k of Object.keys(n)) {
+            if (/^(size|bytes|file_size|filesize|content_length|contentlength|length)$/i.test(k) &amp;&amp; typeof n[k] === 'number' &amp;&amp; n[k] &gt;= 0) { num = n[k]; return; }
+            walk(n[k], d + 1);
+          }
+        })(j, 0);
+        if (num != null) return num;
+        const c = (j &amp;&amp; (j.content !== undefined ? j.content : (j.data &amp;&amp; j.data.content !== undefined ? j.data.content : j.data)));
+        if (typeof c !== 'string') return note('в ответе нет содержимого');
+        const s = c.trim();
+        if (s.length &gt; 3 &amp;&amp; s.length % 4 === 0 &amp;&amp; /^[A-Za-z0-9+/=\r\n]+$/.test(s)) {
+          const pad = (s.endsWith('==') ? 2 : s.endsWith('=') ? 1 : 0);
+          return Math.floor(s.length * 3 / 4) - pad;
+        }
+        return new TextEncoder().encode(c).length;
+      }
+      if (ct.includes('json')) { const j = await r.json(); const c = (j &amp;&amp; (j.content !== undefined ? j.content : (j.data &amp;&amp; j.data.content !== undefined ? j.data.content : j.data))); return typeof c === 'string' ? new TextEncoder().encode(c) : null; }
+      return new Uint8Array(await r.arrayBuffer());
+    } catch (e) { return null; }
+  }
+  async function zaiArchive() {
+    if (!zaiMode) return null;
+    const share = zaiMode === 'share';
+    try {
+      const r = await fetch(ZAI_WS + (share ? '/share/files/archive' : '/files/archive'), { method: 'POST', signal: runAC &amp;&amp; runAC.signal, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + zaiToken() }, body: JSON.stringify(share ? { share_id: zaiId, rev: 'HEAD' } : { chatId: zaiId, rev: 'HEAD' }) });
+      if (!r.ok) return null;
+      return await r.blob();
+    } catch (e) { return null; }
+  }
+
+  /* --------------------------------- ZIP ----------------------------------- */
+  /*--ZIPSYS-START--*/
+  /*--ZIP-START--*/
+  const CRC_T = (() =&gt; { const t = new Uint32Array(256);
+    for (let n = 0; n &lt; 256; n++) { let c = n; for (let k = 0; k &lt; 8; k++) c = (c &amp; 1) ? (0xEDB88320 ^ (c &gt;&gt;&gt; 1)) : (c &gt;&gt;&gt; 1); t[n] = c &gt;&gt;&gt; 0; }
+    return t; })();
+  const crc32 = u =&gt; { let c = 0xFFFFFFFF; for (let i = 0; i &lt; u.length; i++) c = CRC_T[(c ^ u[i]) &amp; 0xFF] ^ (c &gt;&gt;&gt; 8); return (c ^ 0xFFFFFFFF) &gt;&gt;&gt; 0; };
+  function zipLayout(entries, dt, dd) {
+    const enc = new TextEncoder(), chunks = [], central = []; let off = 0;
+    for (const e of entries) {
+      const u8 = e.u8, nb = enc.encode(e.name), crc = crc32(u8);
+      const lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true);
+      lh.setUint16(10, dt, true); lh.setUint16(12, dd, true);
+      lh.setUint32(14, crc, true); lh.setUint32(18, u8.length, true); lh.setUint32(22, u8.length, true);
+      lh.setUint16(26, nb.length, true);
+      chunks.push(new Uint8Array(lh.buffer), nb, u8);
+      const ch = new DataView(new ArrayBuffer(46));
+      ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+      ch.setUint16(12, dt, true); ch.setUint16(14, dd, true);
+      ch.setUint32(16, crc, true); ch.setUint32(20, u8.length, true); ch.setUint32(24, u8.length, true);
+      ch.setUint16(28, nb.length, true); ch.setUint32(42, off, true);
+      central.push(new Uint8Array(ch.buffer), nb);
+      off += 30 + nb.length + u8.length;
+    }
+    const cds = central.reduce((s, c) =&gt; s + c.length, 0);
+    const eo = new DataView(new ArrayBuffer(22));
+    eo.setUint32(0, 0x06054b50, true); eo.setUint16(8, entries.length, true);
+    eo.setUint16(10, entries.length, true); eo.setUint32(12, cds, true); eo.setUint32(16, off, true);
+    return new Blob([...chunks, ...central, new Uint8Array(eo.buffer)], { type: 'application/zip' });
+  }
+  const zipStamp = () =&gt; {
+    const d = new Date();
+    return { dt: ((d.getHours() &lt;&lt; 11) | (d.getMinutes() &lt;&lt; 5) | (d.getSeconds() &gt;&gt; 1)) &amp; 0xFFFF,
+             dd: (((d.getFullYear() - 1980) &lt;&lt; 9) | ((d.getMonth() + 1) &lt;&lt; 5) | d.getDate()) &amp; 0xFFFF };
+  };
+  const makeZipSync = entries =&gt; { const s = zipStamp(); return zipLayout(entries, s.dt, s.dd); };
+  /*--ZIP-END--*/
+
+  /* сборка ZIP в Web Worker — главный поток страницы не блокируется (п.1) */
+  const WORKER_SRC = [
+    'const T=(()=&gt;{const t=new Uint32Array(256);for(let n=0;n&lt;256;n++){let c=n;for(let k=0;k&lt;8;k++)c=(c&amp;1)?(0xEDB88320^(c&gt;&gt;&gt;1)):(c&gt;&gt;&gt;1);t[n]=c&gt;&gt;&gt;0;}return t;})();',
+    'const crc=u=&gt;{let c=0xFFFFFFFF;for(let i=0;i&lt;u.length;i++)c=T[(c^u[i])&amp;0xFF]^(c&gt;&gt;&gt;8);return (c^0xFFFFFFFF)&gt;&gt;&gt;0;};',
+    'onmessage=ev=&gt;{const{entries,dt,dd}=ev.data;try{',
+    'const enc=new TextEncoder(),chunks=[],central=[];let off=0;',
+    'for(const e of entries){const u8=new Uint8Array(e.buf),nb=enc.encode(e.name),c=crc(u8);',
+    'const lh=new DataView(new ArrayBuffer(30));',
+    'lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);',
+    'lh.setUint16(10,dt,true);lh.setUint16(12,dd,true);',
+    'lh.setUint32(14,c,true);lh.setUint32(18,u8.length,true);lh.setUint32(22,u8.length,true);',
+    'lh.setUint16(26,nb.length,true);',
+    'chunks.push(new Uint8Array(lh.buffer),nb,u8);',
+    'const ch=new DataView(new ArrayBuffer(46));',
+    'ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint16(8,0x0800,true);',
+    'ch.setUint16(12,dt,true);ch.setUint16(14,dd,true);',
+    'ch.setUint32(16,c,true);ch.setUint32(20,u8.length,true);ch.setUint32(24,u8.length,true);',
+    'ch.setUint16(28,nb.length,true);ch.setUint32(42,off,true);',
+    'central.push(new Uint8Array(ch.buffer),nb);',
+    'off+=30+nb.length+u8.length;}',
+    'const cds=central.reduce((s,x)=&gt;s+x.length,0);',
+    'const eo=new DataView(new ArrayBuffer(22));',
+    'eo.setUint32(0,0x06054b50,true);eo.setUint16(8,entries.length,true);eo.setUint16(10,entries.length,true);',
+    'eo.setUint32(12,cds,true);eo.setUint32(16,off,true);',
+    'const blob=new Blob(chunks.concat(central,[new Uint8Array(eo.buffer)]),{type:"application/zip"});',
+    'postMessage({ok:true,blob});}catch(err){postMessage({ok:false,err:String(err)});}};'
+  ].join('\n');
+  let zipWorker = null, zipWorkerBroken = false;
+  const ZIP_COPY_LIMIT = 16 * 1024 * 1024;   // до этого размера партию дешевле скопировать
+  const ZIP_TIMEOUT = 120000;  /* Восстановление партии после падения воркера: имя записи в архиве — это путь
+     файла в рабочей области, поэтому байты можно запросить заново. */
+  async function refetchEntries(entries) {
+    const out = [];
+    for (const e of entries) {
+      if (STOP) break;
+      let b = null;
+      try { b = await fetchBytes(e.name, runAC &amp;&amp; runAC.signal); } catch (err) { b = null; }
+      if (b instanceof Uint8Array &amp;&amp; b.length) out.push({ name: e.name, u8: b });
+      else log('  ↳ не удалось перезапросить файл: ' + e.name);
+    }
+    return out;
+  }
+  function getZipWorker() {
+    if (zipWorker || zipWorkerBroken) return zipWorker;
+    try {
+      const u = URL.createObjectURL(new Blob([WORKER_SRC], { type: 'text/javascript' }));
+      zipWorker = new Worker(u);
+      URL.revokeObjectURL(u);
+      zipWorker.onerror = () =&gt; { try { zipWorker.terminate(); } catch (e) {} zipWorker = null; zipWorkerBroken = true; };
+    } catch (e) { zipWorker = null; zipWorkerBroken = true; }
+    return zipWorker;
+  }
+  /* Крупные партии отдаём в воркер БЕЗ КОПИИ (transfer): на архиве в сотни
+     мегабайт копия удваивала память. Если воркер всё-таки упал, исходных байт в
+     главном потоке уже нет — тогда перезапрашиваем их и собираем архив здесь,
+     чтобы вместо архива не записался битый файл. Мелкие партии копируем: копия
+     дёшева, а откат работает на исходных байтах. */
+  function makeZipAsync(entries) {
+    const total = entries.reduce((s, e) =&gt; s + e.u8.length, 0);
+    const canTransfer = total &gt;= ZIP_COPY_LIMIT &amp;&amp; entries.every(e =&gt; {
+      const b = e.u8.buffer;
+      return b &amp;&amp; e.u8.byteOffset === 0 &amp;&amp; e.u8.byteLength === b.byteLength;
+    });
+    return new Promise(resolve =&gt; {
+      const w = getZipWorker();
+      if (!w) { resolve(makeZipSync(entries)); return; }
+      const s = zipStamp();
+      const msg = entries.map(e =&gt; ({ name: e.name, buf: e.u8.buffer }));
+      const list = canTransfer ? entries.map(e =&gt; e.u8.buffer) : null;
+      let settled = false;
+      function done(blob) { if (settled) return; settled = true; clearTimeout(to); resolve(blob); }
+      async function fallback() {
+        if (settled) return;
+        settled = true;
+        clearTimeout(to);
+        try { w.terminate(); } catch (e) {}
+        zipWorker = null; zipWorkerBroken = true;
+        if (!list) { resolve(makeZipSync(entries)); return; }
+        const again = await refetchEntries(entries);      // буферы уже ушли в воркер
+        if (!again.length) { log('Сборка ZIP сорвалась: воркер недоступен, а перезапросить файлы не удалось.'); resolve(null); return; }
+        if (again.length &lt; entries.length) log('  в архив не попало файлов: ' + (entries.length - again.length) + ' (не удалось перезапросить)');
+        resolve(makeZipSync(again));
+      }
+      const to = setTimeout(fallback, ZIP_TIMEOUT);
+      w.onerror = fallback;
+      w.onmessage = ev =&gt; { if (ev.data &amp;&amp; ev.data.ok) done(ev.data.blob); else fallback(); };
+      try { w.postMessage({ entries: msg, dt: s.dt, dd: s.dd }, list || []); } catch (e) { fallback(); }
+    });
+  }
+
+  /*--ZIPSYS-END--*/
+
+  /* ------------------------------- мост расширения -------------------------- */
+  let HAS_BRIDGE = false, hintedCORS = false;
+  addEventListener('wzr:hello', () =&gt; { HAS_BRIDGE = true; });
+  const b64ToU8 = b =&gt; { const bin = atob(b); const u = new Uint8Array(bin.length); for (let i = 0; i &lt; bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
+  function bridgeCall(type, payload, ms) {
+    return new Promise(resolve =&gt; {
+      if (!HAS_BRIDGE) return resolve(null);
+      const id = type + Math.random().toString(36).slice(2);
+      const resEv = type === 'wzr-fetch' ? 'wzr:fetchres' : 'wzr:sizeres';
+      const reqEv = type === 'wzr-fetch' ? 'wzr:fetchreq' : 'wzr:sizereq';
+      const to = setTimeout(() =&gt; { cleanup(); resolve(null); }, ms || 180000);
+      function onRes(ev) { if (!ev.detail || ev.detail.id !== id) return; cleanup(); resolve(ev.detail); }
+      function cleanup() { clearTimeout(to); removeEventListener(resEv, onRes); }
+      addEventListener(resEv, onRes);
+      window.dispatchEvent(new CustomEvent(reqEv, { detail: Object.assign({ id }, payload) }));
+    });
+  }
+  /* Обход CORS через фон: мелкий файл — одним сообщением, крупный — кусками по
+     Range (фон отдаёт не больше 48 МБ за раз). Так снимается прежнее
+     ограничение «крупный файл с чужого CDN не скачать». */
+  const EXT_CHUNK = 24 * 1024 * 1024;
+  async function extFetch(url, signal) {
+    const one = await bridgeCall('wzr-fetch', { url }, 180000);
+    if (one &amp;&amp; one.ok &amp;&amp; typeof one.b64 === 'string') return b64ToU8(one.b64);
+    if (!one || (signal &amp;&amp; signal.aborted)) return null;
+    const total = one.total || one.size || 0;
+    if (!total || total &lt;= 0) return null;
+    const out = new Uint8Array(total);
+    const steps = Math.ceil(total / EXT_CHUNK) + 4;
+    let got = 0, guard = 0;
+    while (got &lt; total &amp;&amp; guard++ &lt; steps) {
+      if (signal &amp;&amp; signal.aborted) return null;
+      const end = Math.min(got + EXT_CHUNK - 1, total - 1);
+      const part = await bridgeCall('wzr-fetch', { url, range: 'bytes=' + got + '-' + end }, 180000);
+      if (!part || !part.ok || typeof part.b64 !== 'string') {
+        if (part &amp;&amp; part.rangeIgnored) log('Крупный файл: сервер не отдаёт его частями — обходной путь недоступен.');
+        return null;
+      }
+      const u8 = b64ToU8(part.b64);
+      if (!u8.length || got + u8.length &gt; total) return null;
+      out.set(u8, got);
+      got += u8.length;
+    }
+    return got === total ? out : null;
+  }
+  async function extSize(url) {
+    const r = await bridgeCall('wzr-size', { url }, 15000);
+    return r &amp;&amp; r.ok &amp;&amp; typeof r.size === 'number' ? r.size : null;
+  }
+
+  /* ------------------------------- скачивание ------------------------------ */
+  async function fetchBytes(p, signal) {
+    const u = urlFor(p);
+    if (!u) return null;
+    if (u.startsWith('zai:')) return await zaiContent(p, signal);
+    if (u.startsWith('blob:') &amp;&amp; blobs.has(u)) { const b = blobs.get(u); return new Uint8Array(await b.arrayBuffer()); }
+    let first = null;
+    try {
+      const r = await fetch(u, { credentials: 'include', signal });
+      if (r.ok) return new Uint8Array(await r.arrayBuffer());
+      first = { http: r.status };
+    } catch (e) { if (signal &amp;&amp; signal.aborted) return { err: 'abort' }; first = { err: e.message }; }
+    const fb = fallbackUrl(p);
+    if (fb) {
+      try {
+        const r2 = await fetch(fb, { credentials: 'include', signal });
+        if (r2.ok) { log('  ↳ ' + p.split('/').pop() + ': взял ссылку из трафика страницы'); return new Uint8Array(await r2.arrayBuffer()); }
+      } catch (e) { if (signal &amp;&amp; signal.aborted) return { err: 'abort' }; }
+      const ex = await extFetch(fb, signal);
+      if (ex) { log('  ↳ ' + p.split('/').pop() + ': получено через расширение (обход CORS)'); return ex; }
+      if (!HAS_BRIDGE &amp;&amp; !hintedCORS) { hintedCORS = true; log('CDN отдаёт файл без CORS: браузер не даст байты странице. Запустите расширение (клик по иконке) — оно доберёт само.'); }
+    }
+    return first;
+  }
+  function fallbackUrl(p) {
+    const seg = p.split('/');
+    const t3 = '/' + seg.slice(-3).join('/');
+    const t2 = '/' + seg.slice(-2).join('/');
+    for (let i = extraUrls.length - 1; i &gt;= 0; i--) {
+      const u = extraUrls[i].u;
+      if (u.includes(t3) || u.includes(t2)) return u;
+    }
+    return null;
+  }
+  const MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml', webp: 'image/webp', ico: 'image/x-icon',
+    mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', mp4: 'video/mp4', webm: 'video/webm',
+    json: 'application/json', pdf: 'application/pdf', zip: 'application/zip',
+    html: 'text/html', htm: 'text/html', css: 'text/css', js: 'text/javascript', ts: 'text/plain', tsx: 'text/plain', jsx: 'text/plain',
+    md: 'text/markdown', txt: 'text/plain', xml: 'text/xml', srt: 'text/plain', vtt: 'text/plain', ass: 'text/plain', py: 'text/plain' };
+  const mimeFor = n =&gt; {
+    const m = MIME[(n.split('.').pop() || '').toLowerCase()] || 'application/octet-stream';
+    return (/^text\//.test(m) || m === 'application/json' || m === 'image/svg+xml') ? m + ';charset=utf-8' : m;
+  };
+
+  async function saveOne(p, signal) {           // скачать один файл «как есть»
+    const b = await fetchBytes(p, signal);
+    if (!(b instanceof Uint8Array) || (signal &amp;&amp; signal.aborted)) return false;
+    const name = p.split('/').pop();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([b], { type: mimeFor(name) }));
+    a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(u =&gt; { URL.revokeObjectURL(u); }, 5 * 60 * 1000, a.href);
+    a.remove();
+    return true;
+  }
+
+  /* ------------------------------- ПАНЕЛЬ (V1) ------------------------------ */
+  const P = document.createElement('div');
+  P.id = 'wzrPanel';
+  P.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;width:440px;height:calc(100vh - 24px);max-height:calc(100vh - 24px);background:#151521;' +
+    'color:#eee;font:14.5px/1.45 monospace;border-radius:10px;border:1px solid #3a3a55;box-shadow:0 8px 28px rgba(0,0,0,.6);' +
+    'user-select:none;display:flex;flex-direction:column;overflow:hidden';
+  const PIN_SVG = '&lt;svg viewBox="0 0 24 24" width="14" height="14"&gt;&lt;path d="M14 4v5c0 1.12.37 2.16 1 3H9c.65-.86 1-1.9 1-3V4h4m4-2H6c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3V4h1c.55 0 1-.45 1-1s-.45-1-1-1z"/&gt;&lt;/svg&gt;';
+  P.innerHTML =
+    '&lt;div id="grip" title="Потяните, чтобы изменить ширину панели"&gt;&lt;/div&gt;' +
+    '&lt;div id="hd" style="cursor:move;padding:8px 10px;background:#1d2b1d;border-radius:10px 10px 0 0;display:flex;gap:6px;align-items:center"&gt;' +
+    '&lt;b style="color:#7fd67f;flex:1" title="WORKSPACE V1 · сборка ' + WZR_BUILD + '"&gt;WORKSPACE V1 · ' + (IS_QWEN ? 'QWEN' : IS_ZAI ? 'Z.AI' : HOST.replace(/^www\./, '')) + '&lt;/b&gt;' +
+    '&lt;button id="pin" title="Закрепить как боковую панель (страница сдвинется) / открепить"&gt;' + PIN_SVG + '&lt;/button&gt;' +
+    '&lt;button data-a="left" title="К левому краю"&gt;◀&lt;/button&gt;&lt;button data-a="right" title="К правому краю"&gt;▶&lt;/button&gt;' +
+    '&lt;button data-a="min" title="Свернуть / развернуть"&gt;—&lt;/button&gt;&lt;button data-a="close" class="wzrX" title="Закрыть панель"&gt;×&lt;/button&gt;&lt;/div&gt;' +
+    '&lt;div class="wzrTabs"&gt;' +
+    '&lt;button id="tabMain" class="wzrTab"&gt;ГЛАВНАЯ&lt;/button&gt;' +
+    '&lt;button id="tabSet" class="wzrTab"&gt;НАСТРОЙКИ&lt;/button&gt;' +
+    '&lt;/div&gt;' +
+    /* ---------- главная: дерево скроллится внутри, кнопки зафиксированы внизу ---------- */
+    '&lt;div id="bodyMain" style="padding:8px 10px 10px;display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden"&gt;' +
+    '&lt;div id="mem" style="flex:0 1 auto;min-height:0;overflow:hidden" title="Память рабочей области"&gt;&lt;div id="memTxt"&gt;память: …&lt;/div&gt;&lt;div id="memBar"&gt;&lt;div id="memFill"&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;' +
+    '&lt;div id="c" style="flex:0 1 auto;min-height:0;overflow:hidden"&gt;Нажмите ОБНОВИТЬ…&lt;/div&gt;' +
+    '&lt;div style="margin-top:6px;display:flex;gap:5px;align-items:center;flex:0 0 auto"&gt;' +
+    '&lt;button id="sortBtn" title="Сортировка дерева: А-Я → по размеру → в порядке сервера"&gt;СОРТ: А-Я&lt;/button&gt;' +
+    '&lt;input id="fl" style="flex:1;min-width:40px" placeholder="фильтр по пути"&gt;' +
+    '&lt;button id="all" class="wzrIconBtn" title="Отметить всё / снять всё"&gt;&amp;#9745;&lt;/button&gt;&lt;/div&gt;' +
+    '&lt;div id="tree" style="margin-top:8px;flex:1 1 0;min-height:0;max-height:none;overflow:auto;background:#0d0d16;border:1px solid #2c2c40;border-radius:4px;padding:6px"&gt;&lt;/div&gt;' +
+    '&lt;div id="stat" style="margin-top:6px;color:#9ad;flex:0 0 auto"&gt;&lt;/div&gt;' +
+    '&lt;div id="log" class="wzrLog"&gt;&lt;/div&gt;' +
+    /* нижняя панель: строка прогресса (сверху) и кнопки (всегда у нижнего края) */
+    '&lt;div id="foot"&gt;' +
+    '&lt;div id="prog"&gt;&lt;div id="progTxt"&gt;&lt;/div&gt;&lt;div id="progBar"&gt;&lt;div id="progFill"&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;' +
+    '&lt;button id="go" class="wzrGo" title="Скачать отмеченное одним ZIP"&gt;СКАЧАТЬ ZIP&lt;/button&gt;&lt;button id="goRaw" class="wzrGo" title="Скачать отмеченное отдельными файлами"&gt;СКАЧАТЬ КАК ЕСТЬ&lt;/button&gt;' +
+    '&lt;button id="refresh" title="Перечитать список файлов"&gt;ОБНОВИТЬ&lt;/button&gt;&lt;button id="arch" class="' + (IS_ZAI ? '' : 'wzrHide') + '"&gt;АРХИВ ВСЕЙ ОБЛАСТИ&lt;/button&gt;&lt;button id="catch" class="' + ((IS_ZAI || IS_QWEN) ? 'wzrHide' : '') + '"&gt;ПОЙМАТЬ ССЫЛКУ&lt;/button&gt;' +
+    '&lt;button id="stop" class="wzrX" style="display:none" title="Мгновенно отменить скачивание"&gt;СТОП&lt;/button&gt;&lt;/div&gt;' +
+    '&lt;/div&gt;' +
+    /* ---------------- настройки ---------------- */
+    '&lt;div id="bodySet" style="display:none;padding:8px 10px 10px;overflow:auto;flex:1 1 auto;min-height:0"&gt;' +
+    '&lt;div class="wzrSec"&gt;&lt;b&gt;Сайты&lt;/b&gt;&lt;div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap"&gt;' +
+    '&lt;button id="openQ"&gt;Открыть chat.qwen.ai ↗&lt;/button&gt;&lt;button id="openZ"&gt;Открыть chat.z.ai ↗&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;' +
+    '&lt;div class="wzrSec"&gt;&lt;b&gt;Размеры и память&lt;/b&gt;&lt;div style="margin-top:5px"&gt;' +
+    '&lt;div style="margin-bottom:4px"&gt;Размеры файлов и память:&lt;/div&gt;' +
+    '&lt;select id="szMode" style="width:100%"&gt;' +
+    '&lt;option value="full"&gt;Отображать размеры файлов&lt;/option&gt;' +
+    '&lt;option value="off"&gt;Не отображать размеры (выключено)&lt;/option&gt;' +
+    '&lt;/select&gt;' +
+    '&lt;div style="color:#9aa3b5;margin-top:5px;font-size:13.5px;line-height:1.45"&gt;' +
+    '&lt;b&gt;Отображать размеры файлов&lt;/b&gt; — запрашивает размер каждого файла: суммы по папкам, шкала памяти и объём в статистике.&lt;br&gt;' +
+    '&lt;b&gt;Не отображать&lt;/b&gt; — запросов к сайту нет; колонка размеров и шкала памяти скрыты, в статистике только количество файлов.' +
+    '&lt;/div&gt;' +
+    '&lt;div style="margin-top:5px"&gt;Общий объём области, ГБ (0 = определить автоматически из API): &lt;input id="quotaGB" type="number" min="0" step="1" style="width:64px"&gt;&lt;/div&gt;' +
+    '&lt;div style="margin-top:6px"&gt;&lt;button id="szNow" title="Разово запросить размеры всех файлов (HEAD/Range)"&gt;УЗНАТЬ РАЗМЕРЫ СЕЙЧАС&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;' +
+    '&lt;div class="wzrSec"&gt;&lt;b&gt;Масштаб и шрифт&lt;/b&gt;&lt;div style="margin-top:5px"&gt;' +
+    '&lt;select id="fsMode" style="width:100%"&gt;' +
+    '&lt;option value="big"&gt;Крупный&lt;/option&gt;' +
+    '&lt;option value="medium"&gt;Средний&lt;/option&gt;' +
+    '&lt;option value="small"&gt;Мелкий&lt;/option&gt;' +
+    '&lt;/select&gt;' +
+    '&lt;div style="color:#9aa3b5;margin-top:5px;font-size:13.5px;line-height:1.45"&gt;Размер текста в панели. Запоминается для каждого сайта отдельно.&lt;/div&gt;' +
+    '&lt;div id="fsSample" style="margin-top:6px;padding-top:6px;border-top:1px dashed #2c2c40;color:#cfd6e4"&gt;Пример: папка/файл_2026.pdf — 1,2 МБ&lt;/div&gt;' +
+    '&lt;/div&gt;&lt;/div&gt;' +
+    '&lt;div class="wzrSec"&gt;&lt;b&gt;Диагностика&lt;/b&gt;' +
+    '&lt;div style="color:#9aa3b5;margin-top:4px;font-size:13.5px"&gt;Если дорабатываете программу с агентом — сделайте диагностику, скопируйте отчёт и отправьте ему.&lt;/div&gt;' +
+    '&lt;div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap"&gt;' +
+    '&lt;button id="runDiag" class="wzrGo"&gt;СДЕЛАТЬ ДИАГНОСТИКУ&lt;/button&gt;&lt;button id="copylog"&gt;КОПИРОВАТЬ ЛОГ&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;' +
+    '&lt;div class="wzrSec"&gt;&lt;b&gt;О программе&lt;/b&gt;&lt;div style="color:#cfd6e4;margin-top:3px"&gt;Workspace Rescue V1 — забирает файлы из рабочей области чатов &lt;b&gt;chat.z.ai&lt;/b&gt; и &lt;b&gt;chat.qwen.ai&lt;/b&gt;.&lt;/div&gt;' +
+    '&lt;ul class="wzrAbout"&gt;' +
+    '&lt;li&gt;В режиме агента сайты создают файлы в вашей рабочей области, но отдать их не всегда могут: chat.z.ai часто не даёт скачать готовое, у chat.qwen.ai бывает, что чат вообще не отвечает.&lt;/li&gt;' +
+    '&lt;li&gt;Проект лежит папками, и тянуть каждый файл по одному долго. Здесь всё скачивается &lt;b&gt;одним архивом&lt;/b&gt; с сохранением структуры папок.&lt;/li&gt;' +
+    '&lt;li&gt;Бывает, что файл уже создан, а сайт кнопку скачивания так и не показал — в панели он всё равно виден, и его можно забрать.&lt;/li&gt;' +
+    '&lt;li&gt;Всё работает в вашем браузере: ничего не отправляется на сторонние серверы.&lt;/li&gt;' +
+    '&lt;/ul&gt;&lt;/div&gt;' +
+    '&lt;div class="wzrSec" style="color:#7a8499"&gt;Workspace Rescue V1 · только для личного использования на ваших чатах.&lt;/div&gt;' +
+    '&lt;div style="color:#5f6a80;font-size:12.5px;text-align:right;padding:2px 4px 0"&gt;Автор: &lt;span style="color:#b98cff"&gt;Рэйф_72&lt;/span&gt;&lt;/div&gt;' +
+    '&lt;/div&gt;';
+  document.body.appendChild(P);
+  const $ = s =&gt; P.querySelector(s);
+  const L = [];
+  /* Журнал: каждая строка — свой элемент, поэтому ошибки видны красным,
+     новые файлы — жёлтым, а успешные сохранения — зелёным. */
+  const LOG_KIND = { err: 'wzrErr', new: 'wzrNew', ok: 'wzrOk' };
+  function log(t, kind) {
+    if (SILENT) return;
+    L.push(t);
+    if (L.length &gt; 400) L.shift();
+    const el = $('#log');
+    if (!el) return;
+    const line = document.createElement('div');
+    if (LOG_KIND[kind]) line.className = LOG_KIND[kind];
+    line.textContent = t;
+    el.appendChild(line);
+    while (el.childNodes.length &gt; 400) el.removeChild(el.firstChild);
+    el.scrollTop = el.scrollHeight;
+  }
+  async function copyText(t, msg) {
+    try { await navigator.clipboard.writeText(t); log(msg); }
+    catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = t; ta.style.cssText = 'position:fixed;top:0;left:0;opacity:.01';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); log(msg); } catch (e2) { log(msg + ' — не удалось скопировать'); }
+      ta.remove();
+    }
+  }
+  /* ------------------------------ прогресс-бар ----------------------------- */
+  function progShow(txt, pct, ind) {
+    $('#prog').style.display = 'block';
+    $('#progTxt').textContent = txt;
+    const f = $('#progFill');
+    f.classList.toggle('ind', !!ind);
+    if (!ind) f.style.width = Math.max(0, Math.min(100, pct || 0)) + '%';
+  }
+  function progHide() { $('#prog').style.display = 'none'; $('#progFill').classList.remove('ind'); }
+  function progDone(txt) { progShow(txt, 100); setTimeout(progHide, 6000); }
+
+  /* ------------------------- вкладки / скрепка / шапка ---------------------- */
+  function setTab(t) {
+    UI.tab = t; saveUI();
+    $('#tabMain').classList.toggle('wzrTabOn', t === 'main');
+    if (DEAD) return;
+    applyFontMode();
+    $('#tabSet').classList.toggle('wzrTabOn', t === 'set');
+    const bm = $('#bodyMain'), bs = $('#bodySet');
+    bm.classList.toggle('wzrHidden', t !== 'main');
+    bs.classList.toggle('wzrHidden', t !== 'set');
+    bm.style.display = t === 'main' ? 'flex' : 'none';
+    bs.style.display = t === 'set' ? '' : 'none';
+    $('#hd').style.borderRadius = UI.dock ? '0' : '10px 10px 0 0';
+    fitLater();                     // у вкладок разная высота — пересчитываем
+  }
+  $('#tabMain').onclick = () =&gt; setTab('main');
+  $('#tabSet').onclick = () =&gt; setTab('set');
+
+  function panelVisible() { return P.style.display !== 'none'; }
+  function setPageMargin(px) {
+    try {
+      const de = document.documentElement;
+      de.style.transition = 'margin .12s ease';
+      if (px &amp;&amp; UI.dock === 'right') { de.style.marginRight = Math.round(px) + 'px'; de.style.marginLeft = ''; }
+      else if (px &amp;&amp; UI.dock === 'left') { de.style.marginLeft = Math.round(px) + 'px'; de.style.marginRight = ''; }
+      else { de.style.marginLeft = ''; de.style.marginRight = ''; }
+    } catch (e) {}
+  }
+  function dockWidth() {
+    const def = Math.round(Math.max(340, innerWidth * 0.34));
+    return Math.max(320, UI.w || def);
+  }
+  /* высота панели: закреплённая — во всю высоту окна, плавающая — тоже
+     растягивается на всё окно (минус поля), иначе дерево файлов не сможет
+     дойти до нижней панели с кнопками. */
+  function panelMaxH() { return Math.max(260, Math.round(innerHeight * 0.92)); }
+  /* по умолчанию — компактная панель (480px или меньше, если окно низкое) */
+  function floatH() {
+    const def = Math.min(panelMaxH(), Math.round(innerHeight * 0.86), 700);
+    return UI.h ? Math.max(300, Math.min(UI.h, panelMaxH())) : def;
+  }
+  function applyDock() {
+    if (DEAD) return;
+    if (P.style.display !== 'none') P.style.display = 'flex';   // страховка: без flex раскладка рассыпается
+    const g = $('#grip');
+    if (UI.dock) {
+      P.classList.add('docked');
+      P.style.top = '0'; P.style.bottom = '0'; P.style.height = '100vh'; P.style.maxHeight = '100vh';
+      P.style.left = UI.dock === 'left' ? '0' : 'auto';
+      P.style.right = UI.dock === 'right' ? '0' : 'auto';
+      P.style.maxWidth = ''; P.style.width = dockWidth() + 'px';
+      P.style.boxShadow = UI.dock === 'right' ? '-14px 0 36px rgba(0,0,0,.55)' : '14px 0 36px rgba(0,0,0,.55)';
+      $('#pin').classList.add('wzrPinned');
+      $('#pin').title = 'Открепить панель (станет плавающей поверх страницы)';
+      if (panelVisible()) setPageMargin(P.getBoundingClientRect().width || dockWidth());
+    } else {
+      P.classList.remove('docked');
+      P.style.bottom = 'auto'; P.style.maxWidth = ''; P.style.width = (UI.w || 440) + 'px'; P.style.top = '12px';
+      P.style.height = floatH() + 'px'; P.style.maxHeight = panelMaxH() + 'px';
+      P.style.boxShadow = '0 8px 28px rgba(0,0,0,.6)';
+      $('#pin').classList.remove('wzrPinned');
+      $('#pin').title = 'Закрепить как боковую панель — страница сдвинется; переживёт обновление';
+      setPageMargin(0);
+    }
+    if (g) {
+      positionGrip();
+    }
+    ensureHGrip();
+    ensureCorners();
+    fitHeight();
+    $('#hd').style.borderRadius = UI.dock ? '0' : '10px 10px 0 0';
+  }
+  function positionGrip() {
+    const g = $('#grip');
+    if (g) { g.style.left = 'auto'; g.style.right = '-4px'; bindGrip(g, 'right'); }
+    let gl = $('#gripL');
+    if (!gl) {
+      gl = document.createElement('div');
+      gl.id = 'gripL';
+      gl.title = 'Потяните, чтобы изменить ширину панели';
+      P.appendChild(gl);
+    }
+    bindGrip(gl, 'left');
+    /* в закреплённом режиме внешний бок прижат к краю экрана — его ползунок не нужен */
+    gl.style.display = UI.dock === 'left' ? 'none' : '';
+    if (g) g.style.display = UI.dock === 'right' ? 'none' : '';
+  }
+  /* углы: тянем — меняются ширина И высота одновременно */
+  function bindCorner(el, side) {
+    if (!el || el.__wzrBound) return;
+    el.__wzrBound = true;
+    el.addEventListener('mousedown', e =&gt; {
+      if (UI.dock) return;
+      e.preventDefault(); e.stopPropagation();
+      const r = P.getBoundingClientRect();
+      const vw = innerWidth, vh = innerHeight;
+      startShield(side === 'br' ? 'nwse-resize' : 'nesw-resize');
+      const startX = e.clientX, startY = e.clientY, startW = r.width, startH = r.height;
+      const leftFixed = r.left, topFixed = r.top;
+      /* фиксируем противоположный угол */
+      P.style.left = Math.round(r.left) + 'px'; P.style.right = 'auto';
+      P.style.top = Math.round(r.top) + 'px'; P.style.bottom = 'auto';
+      const maxW = Math.max(320, Math.round(vw * 0.92));
+      const maxH = Math.max(260, Math.round(vh * 0.92));
+      const move = ev =&gt; {
+        let w = side === 'br' ? startW + (ev.clientX - startX) : startW - (ev.clientX - startX);
+        let h = startH + (ev.clientY - startY);
+        w = Math.max(320, Math.min(maxW, Math.round(w)));
+        h = Math.max(260, Math.min(maxH, Math.round(h)));
+        if (side === 'bl') P.style.left = Math.round(leftFixed + (startW - w)) + 'px';
+        P.style.width = w + 'px'; P.style.height = h + 'px';
+        P.style.maxWidth = maxW + 'px'; P.style.maxHeight = maxH + 'px';
+        UI.w = w; UI.h = h;
+      };
+      const up = () =&gt; {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+        stopShield();
+        P.style.maxHeight = '92vh';
+        saveUI();
+        fitHeight();
+      };
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    });
+  }
+  function ensureCorners() {
+    for (const [id, side] of [['gripBR', 'br'], ['gripBL', 'bl']]) {
+      let el = $('#' + id);
+      if (!el) {
+        el = document.createElement('div');
+        el.id = id; el.className = 'wzrCorner';
+        el.title = 'Потяните за угол — ширина и высота сразу';
+        P.appendChild(el);
+      }
+      bindCorner(el, side);
+    }
+  }
+
+  /* нижняя полоска: тянем — меняем высоту плавающей панели (запоминается) */
+  let draggingH = false;
+  function ensureHGrip() {
+    let gb = $('#gripB');
+    if (!gb) {
+      gb = document.createElement('div');
+      gb.id = 'gripB';
+      gb.title = 'Потяните, чтобы изменить высоту панели';
+      P.appendChild(gb);
+      gb.addEventListener('mousedown', e =&gt; {
+        if (UI.dock) return;
+        e.preventDefault();
+        draggingH = true;
+        startShield('ns-resize');
+        const startY = e.clientY, startH = P.getBoundingClientRect().height;
+        const move = ev =&gt; {
+          const h = Math.max(240, Math.min(panelMaxH(), Math.round(startH + (ev.clientY - startY))));
+          P.style.height = h + 'px';
+        };
+        const up = () =&gt; {
+          document.removeEventListener('mousemove', move);
+          document.removeEventListener('mouseup', up);
+          draggingH = false;
+          stopShield();
+          const h = parseInt(P.style.height, 10);
+          if (h &gt; 0) { UI.h = h; saveUI(); }
+          P.style.maxHeight = panelMaxH() + 'px';
+        };
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+      });
+    }
+    gb.style.display = UI.dock ? 'none' : '';
+    return gb;
+  }
+
+  /* Высота панели. Всегда конкретная высота — иначе дерево файлов не сможет
+     растянуться (в flex-контейнере без определённой высоты оно схлопнется).
+     Дерево прокручивается внутри, подвал с кнопками остаётся внизу. */
+  let fitT = 0;
+  function fitHeight() {
+    if (DEAD) return;
+    if (P.style.display === 'none') return;
+    try { if (typeof getComputedStyle === 'function' &amp;&amp; getComputedStyle(P).display !== 'flex') P.style.display = 'flex'; } catch (e) {}   // лечим «осевшую» панель
+    /* закреплённая — во всю высоту окна */
+    if (UI.dock) {
+      P.style.height = '100vh';
+      P.style.maxHeight = '100vh';
+      P.style.top = '0';
+      P.style.bottom = '0';
+      return;
+    }
+    if (P.classList.contains('wzrCollapsed')) { P.style.height = 'auto'; P.style.maxHeight = 'none'; return; }
+    const b = $('#bodyMain');
+    if (b &amp;&amp; b.style.display === 'none') return;          // свёрнута — не трогаем
+    if (draggingH) return;                                  // пользователь тянет высоту
+    P.style.height = floatH() + 'px';
+    P.style.maxHeight = panelMaxH() + 'px';
+    P.style.top = '12px';
+    P.style.bottom = 'auto';
+  }
+  /* ПРАВИЛО РАСКЛАДКИ (главное):
+     1) нижняя панель с кнопками — всегда внизу и никогда не сжимается;
+     2) список файлов получает всё свободное место и прокручивается внутри;
+     3) журнал (вывод терминала) занимает остаток и уступает первым, если
+        окно низкое. Поэтому поле с файлами не сжимается до «двух миллиметров»,
+        а кнопки «СКАЧАТЬ ZIP» не исчезают даже при тысяче файлов. */
+  const TREE_MIN = 120, LOG_MAX = 88;
+  function layoutMain() {
+    const bm = $('#bodyMain'), tree = $('#tree'), log = $('#log'), mem = $('#mem'), c = $('#c');
+    if (!bm || !tree || !log || !mem || !c) return;
+    if (bm.style.display === 'none') return;                 // вкладка не открыта
+    const cs = getComputedStyle(bm);
+    const avail = bm.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+    if (!(avail &gt; 0)) return;
+    /* ручные размеры сбрасываем — считаем раскладку заново от «чистого» состояния */
+    mem.style.height = ''; c.style.height = ''; log.style.height = '';
+    const withMargins = e =&gt; {
+      const s = getComputedStyle(e);
+      return e.getBoundingClientRect().height + (parseFloat(s.marginTop) || 0) + (parseFloat(s.marginBottom) || 0);
+    };
+    let hard = 0;                                            // то, что не сжимается (инструменты, статистика, кнопки)
+    for (const ch of bm.children) {
+      if (ch === tree || ch === log || ch === mem || ch === c) continue;
+      const s = getComputedStyle(ch);
+      if (s.display === 'none') continue;
+      hard += withMargins(ch);
+    }
+    const memH = withMargins(mem), cH = withMargins(c);
+    let logH = Math.max(0, Math.min(LOG_MAX, avail - hard - memH - cH - TREE_MIN));
+    const logEff = logH &gt; 0 ? logH : 10;                      // рамка журнала всё равно занимает ~10px
+    let aux = memH + cH;                                     // шкала памяти и строка-подсказка
+    let deficit = TREE_MIN - (avail - hard - aux - logEff);
+    if (deficit &gt; 0) {                                       // места мало — уступает память и подсказка
+      const takeMem = Math.min(memH, deficit); deficit -= takeMem;
+      const takeC = Math.min(cH, deficit);
+      mem.style.height = Math.max(0, memH - takeMem) + 'px';
+      mem.style.overflow = 'hidden';
+      c.style.height = Math.max(0, cH - takeC) + 'px';
+      c.style.overflow = 'hidden';
+    }
+    log.style.height = logH + 'px';
+    log.style.flex = '0 1 ' + logH + 'px';
+  }
+  function fitLater() { clearTimeout(fitT); fitT = setTimeout(fitHeight, 120); }
+  /* Полная выгрузка скрипта из страницы. После неё фон снова считает, что панели
+     нет (window.__wzrBuild стёрт), и клик по иконке внедряет свежий content.js —
+     без перезагрузки страницы и без остатков старой сборки. */
+  function uninstall() {
+    DEAD = true;
+    try { UI.hidden = true; saveUI(); } catch (e) {}
+    try { setPageMargin(0); } catch (e) {}
+    try { clearInterval(iTimerCap); } catch (e) {}
+    try { clearInterval(iTimerRefresh); } catch (e) {}
+    try { clearInterval(iTimerChat); } catch (e) {}
+    try { clearTimeout(fitT); } catch (e) {}
+    try { clearTimeout(flT); } catch (e) {}
+    try { if (P &amp;&amp; P.parentNode) P.parentNode.removeChild(P); } catch (e) {}
+    try { ST.remove(); } catch (e) {}
+    try { const cm = document.getElementById('wzrCM'); if (cm) cm.remove(); } catch (e) {}
+    try { stopShield(); } catch (e) {}
+    try { if (origFetch) window.fetch = origFetch; } catch (e) {}
+    try { delete window.__wzrV1; delete window.__wzrBuild; delete window.__wzrTeardown; } catch (e) {}
+    try { console.info('WORKSPACE: панель выгружена — следующий клик по иконке запустит свежую копию'); } catch (e) {}
+  }
+  try { window.__wzrTeardown = () =&gt; uninstall(); } catch (e) {}
+  function toggleDock() {
+    if (UI.dock) {
+      /* ОТКРЕПИТЬ: панель остаётся ТОЧНО там же, где была — просто становится
+         плавающей (её можно перетащить за шапку). Никаких прыжков на другую сторону. */
+      const r = P.getBoundingClientRect();
+      UI.dock = null; UI.w = Math.round(r.width) || 0; saveUI(); applyDock();
+      P.style.left = Math.round(r.left) + 'px';
+      P.style.right = 'auto';
+      P.style.top = Math.max(8, Math.min(Math.round(r.top), innerHeight - 120)) + 'px';
+      positionGrip();
+
+    } else {
+      const r = P.getBoundingClientRect();
+      /* ширину сохраняем — закрепление не должно «прыгать» по размеру */
+      UI.w = Math.max(320, Math.round(r.width) || 0) || UI.w;
+      UI.dock = (r.left + r.width / 2) &lt; innerWidth / 2 ? 'left' : 'right';
+      saveUI(); applyDock();
+
+    }
+  }
+  $('#pin').onclick = toggleDock;
+
+  /* --- щит на время перетаскивания ---------------------------------------
+     Превью файла на сайте — это &lt;iframe&gt;. Когда курсор уходит на него, страница
+     перестаёт получать mousemove, и растягивание «замирает» (можно сузить, но не
+     расширить). Прозрачный щит поверх всего перехватывает движения. */
+  let dragShield = null;
+  function startShield(cursor) {
+    stopShield();
+    dragShield = document.createElement('div');
+    dragShield.id = 'wzrShield';
+    dragShield.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483646;' +
+      'cursor:' + (cursor || 'default') + ';background:transparent';
+    document.body.appendChild(dragShield);
+  }
+  function stopShield() {
+    if (dragShield &amp;&amp; dragShield.parentNode) dragShield.parentNode.removeChild(dragShield);
+    dragShield = null;
+  }
+
+  /* изменение ширины: тянем за ЛЮБОЙ бок — левый или правый */
+  let rzOn = false, rzSide = 'right';
+  function bindGrip(grip, side) {
+    if (!grip || grip.__wzrBound) return;
+    grip.__wzrBound = true;
+    grip.addEventListener('mousedown', e =&gt; {
+      rzOn = true; rzSide = side;
+      e.preventDefault(); e.stopPropagation();
+      startShield('ew-resize');
+      const r0 = P.getBoundingClientRect();
+      const vw = document.documentElement.clientWidth || innerWidth;
+      /* закрепляем противоположный край: двигается именно тот бок, за который взялись */
+      if (!UI.dock) {
+        if (side === 'left') { P.style.left = 'auto'; P.style.right = Math.max(0, Math.round(vw - r0.right)) + 'px'; }
+        else { P.style.right = 'auto'; P.style.left = Math.round(r0.left) + 'px'; }
+      }
+      try { document.body.style.cursor = 'ew-resize'; document.body.style.userSelect = 'none'; } catch (err) {}
+    });
+  }
+  addEventListener('mousemove', e =&gt; {
+    if (!rzOn) return;
+    const r = P.getBoundingClientRect();
+    /* максимум считаем от ОКНА: на z.ai с открытым HTML-превью ширина документа
+       уменьшается, и панель упиралась в этот уменьшенный предел */
+    const wmax = Math.max(320, Math.round(innerWidth * 0.92));
+    let w = rzSide === 'left' ? (r.right - e.clientX) : (e.clientX - r.left);
+    w = Math.max(320, Math.min(wmax, Math.round(w)));
+    P.style.width = w + 'px';
+    P.style.maxWidth = wmax + 'px';
+    UI.w = w;
+    if (UI.dock &amp;&amp; panelVisible()) setPageMargin(w);
+  });
+  addEventListener('mouseup', () =&gt; {
+    if (!rzOn) return;
+    rzOn = false;
+    stopShield();
+    try { document.body.style.cursor = ''; document.body.style.userSelect = ''; } catch (e) {}
+    positionGrip(); saveUI();
+  });
+
+  /* перетаскивание + служебные кнопки (capture, сайт не перехватит) */
+  (function () {
+    const hd = $('#hd'); let dx = 0, dy = 0, drag = false;
+    hd.addEventListener('mousedown', e =&gt; {
+      if (e.target.closest('button, input')) return;
+      const r0 = P.getBoundingClientRect();
+      if (UI.dock) {                       // открепляем ПРИ ПЕРЕТАСКИВАНИИ — без прыжка: остаётся под курсором
+        UI.dock = null; saveUI(); applyDock();
+        P.style.left = Math.round(r0.left) + 'px';
+        P.style.top = Math.max(0, Math.round(r0.top)) + 'px';
+        positionGrip();
+      }
+      drag = true;
+      dx = e.clientX - r0.left; dy = e.clientY - r0.top;
+      P.style.right = 'auto';
+      e.preventDefault();
+    });
+    addEventListener('mousemove', e =&gt; { if (!drag) return;
+      P.style.left = Math.max(0, Math.min(innerWidth - 60, e.clientX - dx)) + 'px';
+      P.style.top = Math.max(0, Math.min(innerHeight - 30, e.clientY - dy)) + 'px'; });
+    addEventListener('mouseup', () =&gt; { if (drag) { drag = false; positionGrip(); } });
+    P.addEventListener('click', e =&gt; {
+      const a = e.target &amp;&amp; e.target.dataset ? e.target.dataset.a : null;
+      if (!a) return;
+      e.preventDefault(); e.stopPropagation();
+      if (a === 'close') {
+        uninstall();                      // полная выгрузка: панель, стили, таймеры, перехват fetch
+        return;
+      }
+      if (a === 'left') {
+        if (UI.dock) { UI.dock = 'left'; saveUI(); applyDock(); }
+        else { P.style.left = '8px'; P.style.right = 'auto'; P.style.top = '8px'; }
+      }
+      if (a === 'right') {
+        if (UI.dock) { UI.dock = 'right'; saveUI(); applyDock(); }
+        else { P.style.right = '8px'; P.style.left = 'auto'; P.style.top = '8px'; }
+      }
+      if (a === 'min') {
+        const b = $('#bodyMain'), b2 = $('#bodySet'), tabs = P.querySelector('.wzrTabs');
+        const hide = !P.classList.contains('wzrCollapsed');   // состояние берём из класса, а не из display
+        P.classList.toggle('wzrCollapsed', hide);
+        b.style.display = hide ? 'none' : (UI.tab === 'main' ? 'flex' : 'none');
+        b2.style.display = hide ? 'none' : (UI.tab === 'set' ? '' : 'none');
+        b.classList.toggle('wzrHidden', hide || UI.tab !== 'main');
+        b2.classList.toggle('wzrHidden', hide || UI.tab !== 'set');
+        tabs.style.display = hide ? 'none' : '';
+        if (UI.dock) { P.style.height = hide ? 'auto' : '100vh'; P.style.bottom = hide ? 'auto' : '0'; }
+        else { P.style.height = hide ? 'auto' : floatH() + 'px'; P.style.maxHeight = panelMaxH() + 'px'; }
+        setPageMargin(hide ? 0 : (UI.dock &amp;&amp; panelVisible() ? dockWidth() : 0));
+      }
+    }, true);
+  })();
+
+  /* -------------------------------- ДЕРЕВО --------------------------------- */
+  function visible() {
+    const fl = ($('#fl').value || '').trim().toLowerCase();
+    return fl ? PATHS.filter(p =&gt; p.toLowerCase().includes(fl)) : PATHS.slice();
+  }
+  function buildDirSizes() {
+    const D = new Map();
+    for (const p of PATHS) {
+      const s = shownSizeOf(p);
+      const parts = p.split('/'); let pre = '';
+      for (let i = 0; i &lt; parts.length - 1; i++) {
+        pre += parts[i] + '/';
+        let e = D.get(pre);
+        if (!e) { e = { sum: 0, unk: 0, known: 0 }; D.set(pre, e); }
+        if (s == null) e.unk++; else { e.sum += s; e.known++; }
+      }
+    }
+    return D;
+  }
+  function fileSz(p) { const s = shownSizeOf(p); return s == null ? '—' : human(s); }
+  function dirSz(d) {
+    const e = curDirSizes.get(d.endsWith('/') ? d : d + '/');
+    if (!e) return '';
+    if (!e.known) return e.unk ? '…' : '';               // размеры ещё не определены
+    return (e.unk ? '≈' : '') + human(e.sum);            // 0 Б у пустых папок тоже показываем
+  }
+  const TREE_STEP = 4000;          // сколько строк дерева показываем за раз
+  let TREE_LIMIT = 0;              // 0 = первая порция; растёт кнопкой и прокруткой
+  function renderTree() {
+    if (DEAD) return;
+    applyFontMode();
+    curDirSizes = buildDirSizes();
+    const vis = visible();
+    const limit = TREE_LIMIT || TREE_STEP;
+    const shown = vis.length &gt; limit ? vis.slice(0, limit) : vis;
+    const rest = vis.length - shown.length;
+    const root = { dirs: new Map(), files: [] };
+    for (const p of shown) {
+      const parts = p.split('/'); let node = root;
+      for (let i = 0; i &lt; parts.length - 1; i++) {
+        if (!node.dirs.has(parts[i])) node.dirs.set(parts[i], { dirs: new Map(), files: [] });
+        node = node.dirs.get(parts[i]);
+      }
+      node.files.push(parts[parts.length - 1]);
+    }
+    function build(node, prefix) {
+      let s = '';
+      const dirEntries = [...node.dirs.entries()];
+      const dsum = nm =&gt; { const d = curDirSizes.get(prefix + nm + '/'); return d ? d.sum : 0; };
+      if (UI.sort === 'alpha') dirEntries.sort((a, b) =&gt; a[0].localeCompare(b[0]));
+      else if (UI.sort === 'size') dirEntries.sort((a, b) =&gt; (dsum(b[0]) - dsum(a[0])) || a[0].localeCompare(b[0]));
+      for (const [name, sub] of dirEntries) {
+        const dp = prefix + name;
+        s += '&lt;details data-dir="' + esc(dp) + '"' + (OPEN_DIRS.has(dp) ? ' open' : '') + '&gt;' +
+          '&lt;summary data-dirsum="' + esc(dp) + '"&gt;' +
+          '&lt;span class="wzrArw"&gt;▶&lt;/span&gt;&lt;input type="checkbox" data-dir="' + esc(dp) + '"&gt; 📁 &lt;b class="wzrNm"&gt;' + esc(name) + '&lt;/b&gt;' +
+          '&lt;span class="wzrSz" data-szd="' + esc(dp) + '"&gt;' + dirSz(dp) + '&lt;/span&gt;&lt;/summary&gt;' +
+          '&lt;div style="margin-left:16px"&gt;' + build(sub, dp + '/') + '&lt;/div&gt;&lt;/details&gt;';
+      }
+      const files = node.files.slice();
+      const fsize = f =&gt; { const v = sizeOf(prefix + f); return v == null ? -1 : v; };
+      if (UI.sort === 'alpha') files.sort((a, b) =&gt; a.localeCompare(b));
+      else if (UI.sort === 'size') files.sort((a, b) =&gt; (fsize(b) - fsize(a)) || a.localeCompare(b));
+      for (const f of files) {
+        const fp = prefix + f;
+        s += '&lt;div class="wzrRow" data-p="' + esc(fp) + '"&gt;&lt;span class="wzrArw"&gt;&lt;/span&gt;' +
+          '&lt;input type="checkbox" data-p="' + esc(fp) + '"' + (SEL.has(fp) ? ' checked' : '') + '&gt; ' +
+          '&lt;span class="wzrNm"&gt;' + esc(f) + '&lt;/span&gt;&lt;span class="wzrSz" data-sz="' + esc(fp) + '"&gt;' + fileSz(fp) + '&lt;/span&gt;&lt;/div&gt;';
+      }
+      return s;
+    }
+    if (firstRender) {
+      /* при самом первом показе — раскрыть верхний уровень; дальше состояние хранится в OPEN_DIRS */
+      for (const name of root.dirs.keys()) OPEN_DIRS.add(name);
+      firstRender = false;
+    }
+    const more = rest &gt; 0
+      ? '&lt;div id="moreRows" style="color:#e0b060;padding:6px 4px"&gt;показано ' + shown.length + ' из ' + vis.length +
+        ' — &lt;button id="moreBtn" style="margin-left:4px"&gt;показать ещё ' + Math.min(rest, TREE_STEP) + '&lt;/button&gt;&lt;/div&gt;'
+      : '';
+    const el = $('#tree');
+    const keepTop = el.scrollTop;
+    el.innerHTML = (build(root, '') + more) || '&lt;i&gt;пусто — нажмите ОБНОВИТЬ&lt;/i&gt;';
+    el.scrollTop = keepTop;
+    const mb = $('#moreBtn');
+    if (mb) mb.onclick = () =&gt; { TREE_LIMIT = (TREE_LIMIT || TREE_STEP) + TREE_STEP; renderTree(); };
+    syncDirs(); stat(); updateMem(); fitLater();
+  }
+  /* прокрутка списка вниз догружает следующую порцию — как лента */
+  $('#tree').addEventListener('scroll', () =&gt; {
+    const el = $('#tree');
+    if (el.scrollTop + el.clientHeight &lt; el.scrollHeight - 80) return;
+    const total = visible().length;
+    if (total &gt; (TREE_LIMIT || TREE_STEP)) { TREE_LIMIT = (TREE_LIMIT || TREE_STEP) + TREE_STEP; renderTree(); }
+  });
+  $('#tree').addEventListener('toggle', e =&gt; {
+    const d = e.target;
+    if (d &amp;&amp; d.tagName === 'DETAILS' &amp;&amp; d.dataset.dir) { d.open ? OPEN_DIRS.add(d.dataset.dir) : OPEN_DIRS.delete(d.dataset.dir); }
+  }, true);
+  function descendants(dir) { const pre = dir + '/'; return PATHS.filter(p =&gt; p === dir || p.startsWith(pre)); }
+  /* Один проход по путям вместо фильтра на каждую папку: на тысячах файлов
+     прежний вариант давал квадратичную сложность и заметно подвисал. */
+  function dirCounts() {
+    const C = new Map();
+    for (const p of PATHS) {
+      const on = SEL.has(p);
+      const parts = p.split('/'); let pre = '';
+      for (let i = 0; i &lt; parts.length - 1; i++) {
+        pre = pre ? pre + '/' + parts[i] : parts[i];
+        let e = C.get(pre);
+        if (!e) { e = { all: 0, on: 0 }; C.set(pre, e); }
+        e.all++; if (on) e.on++;
+      }
+    }
+    return C;
+  }
+  function syncDirs() {
+    const C = dirCounts();
+    for (const cb of $('#tree').querySelectorAll('input[data-dir]')) {
+      const e = C.get(cb.dataset.dir) || { all: 0, on: 0 };
+      cb.checked = e.all &gt; 0 &amp;&amp; e.on === e.all;
+      cb.indeterminate = e.on &gt; 0 &amp;&amp; e.on &lt; e.all;
+    }
+  }
+  function selSize(sel, shown) { let sz = 0, unk = 0; for (const p of sel) { const s = shown ? shownSizeOf(p) : sizeOf(p); if (s == null) unk++; else sz += s; } return { sz, unk }; }
+  function stat() {
+    if (DEAD) return;
+    const vis = visible();
+    const selAll = [...SEL];                // «отмечено» — по ВСЕМ выбранным, а не только видимым в фильтре
+    const selVis = vis.filter(p =&gt; SEL.has(p));
+    const { sz, unk } = selSize(selAll, true);
+    const withUrl = PATHS.filter(p =&gt; urlFor(p)).length;
+    const filtering = ($('#fl').value || '').trim().length &gt; 0;
+    let sizeTxt = '';
+    if (selAll.length &amp;&amp; showingSizes()) {
+      if (sz) sizeTxt = (unk ? '≈' : '') + human(sz);
+      if (unk) sizeTxt += (sizeTxt ? ' + ' : '') + unk + ' без размера';
+    }
+    $('#stat').textContent = 'отмечено ' + selAll.length + ' из ' + PATHS.length +
+      (filtering ? ' (в фильтре ' + selVis.length + ')' : '') +
+      (sizeTxt ? ' · ' + sizeTxt : '') +
+      ' | со ссылками: ' + withUrl + (TEMPLATE ? ' | шаблон пойман' : '');
+    $('#go').title = selAll.length
+      ? 'Скачать ' + selAll.length + ' файл(ов) одним ZIP' + (sizeTxt ? ', ' + sizeTxt : '')
+      : 'Скачать отмеченное одним ZIP';
+    paintToggle();
+  }
+  function updateAllSizes() {
+    curDirSizes = buildDirSizes();
+    for (const el of P.querySelectorAll('[data-sz]')) el.textContent = fileSz(el.dataset.sz);
+    for (const el of P.querySelectorAll('[data-szd]')) el.textContent = dirSz(el.dataset.szd);
+  }
+  $('#tree').addEventListener('change', e =&gt; {
+    const t = e.target;
+    if (t.dataset.p) { t.checked ? SEL.add(t.dataset.p) : SEL.delete(t.dataset.p); }
+    else if (t.dataset.dir !== undefined) {
+      for (const p of descendants(t.dataset.dir)) t.checked ? SEL.add(p) : SEL.delete(p);
+      for (const cb of $('#tree').querySelectorAll('input[data-p]'))
+        if (cb.dataset.p.startsWith(t.dataset.dir + '/') || cb.dataset.p === t.dataset.dir) cb.checked = t.checked;
+    }
+    syncDirs(); stat();          // без renderTree — папки НЕ разворачиваются (п.2)
+  });
+
+  /* --------------------------- превью картинок ----------------------------- */
+  const IMG_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i;
+  const prevCache = new Map();
+  let prevEl = null, prevTimer = null, prevPath = null;
+  function prevHide() { if (prevEl) { prevEl.remove(); prevEl = null; } prevPath = null; }
+  async function cappedFetch(u, cap) {          // не качать больше cap байт (для превью)
+    const ac = newAbort();
+    try {
+      const r = await fetch(u, { credentials: 'include', signal: ac.signal });
+      if (!r.ok) return null;
+      const cl = +(r.headers.get('content-length') || 0);
+      if (cl &amp;&amp; cl &gt; cap) { try { r.body &amp;&amp; r.body.cancel(); } catch (e) {} return null; }
+      const rd = r.body.getReader(); const chunks = []; let n = 0;
+      for (;;) { const { done, value } = await rd.read(); if (done) break; chunks.push(value); n += value.length; if (n &gt; cap) { ac.abort(); return null; } }
+      const out = new Uint8Array(n); let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; }
+      return out;
+    } catch (e) { return null; }
+  }
+  function prevShow(p, x, y) {
+    prevHide(); prevPath = p;
+    prevEl = document.createElement('div');
+    prevEl.style.cssText = 'position:fixed;z-index:2147483647;width:84px;height:84px;background:#0d0d16;border:1px solid #3a3a55;'
+      + 'border-radius:6px;overflow:hidden;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.5);'
+      + 'left:' + Math.min(innerWidth - 92, x + 14) + 'px;top:' + Math.min(innerHeight - 92, y + 10) + 'px';
+    const img = document.createElement('div');
+    img.style.cssText = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#8fb7ff;font:12px monospace';
+    img.textContent = '…'; prevEl.appendChild(img); document.body.appendChild(prevEl);
+    const show = u =&gt; { if (prevPath !== p || !prevEl) return; const im = new Image(); im.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block'; im.src = u; prevEl.innerHTML = ''; prevEl.appendChild(im); };
+    if (prevCache.has(p)) { show(prevCache.get(p)); return; }
+    const known = sizeOf(p);
+    if (known != null &amp;&amp; known &gt; 8 * 1024 * 1024) { img.textContent = human(known) + ' — превью откл. (крупный)'; return; }
+    if (prevCache.size &gt; 60) { for (const u of prevCache.values()) { try { URL.revokeObjectURL(u); } catch (e) {} } prevCache.clear(); }
+    const u = urlFor(p);
+    if (u &amp;&amp; /^https?:/.test(u) &amp;&amp; new URL(u, location.href).hostname !== location.hostname) { show(u); return; }   // прямой CDN
+    (async () =&gt; {
+      let bytes = null;
+      if (u &amp;&amp; /^https?:|^\/|^\./.test(u) &amp;&amp; !u.startsWith('zai:')) bytes = await cappedFetch(u, 4 * 1024 * 1024);
+      if (!bytes) { const r = await fetchBytes(p); if (r instanceof Uint8Array) bytes = r; }
+      if (bytes) {
+        const bu = URL.createObjectURL(new Blob([bytes], { type: mimeFor(p) }));
+        prevCache.set(p, bu); show(bu);
+      } else if (prevPath === p &amp;&amp; prevEl) img.textContent = 'нет превью';
+    })();
+  }
+  $('#tree').addEventListener('mouseover', e =&gt; {
+    const t = e.target.closest ? e.target.closest('[data-p]') : null;
+    if (!t || !IMG_EXT.test(t.dataset.p)) return;
+    const p = t.dataset.p, x = e.clientX, y = e.clientY;
+    if (prevPath === p &amp;&amp; prevEl) return;
+    clearTimeout(prevTimer); prevTimer = setTimeout(() =&gt; prevShow(p, x, y), 160);
+  });
+  $('#tree').addEventListener('mouseout', () =&gt; { clearTimeout(prevTimer); prevHide(); });
+
+  /* ------------------------- контекстное меню (п.4) ------------------------ */
+  const CM = document.createElement('div');
+  CM.id = 'wzrCM';
+  document.body.appendChild(CM);
+  function hideCM() { CM.style.display = 'none'; }
+  function showCM(x, y, items) {
+    CM.innerHTML = '';
+    for (const it of items) {
+      const d = document.createElement('div');
+      d.className = 'wzrCMi'; d.textContent = it.t;
+      d.onclick = () =&gt; { hideCM(); it.f(); };
+      CM.appendChild(d);
+    }
+    CM.style.display = 'block';
+    const r = CM.getBoundingClientRect();
+    CM.style.left = Math.max(2, Math.min(innerWidth - r.width - 4, x)) + 'px';
+    CM.style.top = Math.max(2, Math.min(innerHeight - r.height - 4, y)) + 'px';
+  }
+  /* ------------------- кодировка текста при просмотре ---------------------- */
+  const TEXT_EXT = /\.(html?|xhtml|txt|md|markdown|css|js|mjs|cjs|jsx|ts|tsx|json|jsonc|xml|svg|csv|tsv|yml|yaml|ini|cfg|conf|toml|log|sql|py|rb|php|java|c|h|cpp|hpp|cs|go|rs|sh|bat|ps1|srt|vtt|ass)$/i;
+  const BOM_UTF8 = u =&gt; u.length &gt;= 3 &amp;&amp; u[0] === 0xEF &amp;&amp; u[1] === 0xBB &amp;&amp; u[2] === 0xBF;
+  const BOM_UTF16LE = u =&gt; u.length &gt;= 2 &amp;&amp; u[0] === 0xFF &amp;&amp; u[1] === 0xFE;
+  const BOM_UTF16BE = u =&gt; u.length &gt;= 2 &amp;&amp; u[0] === 0xFE &amp;&amp; u[1] === 0xFF;
+  function decodeText(bytes) {
+    /* 1) BOM — самый надёжный признак; 2) объявленная в файле кодировка;
+       3) строгий UTF-8; 4) windows-1251 как частый вариант для русских файлов. */
+    if (BOM_UTF16LE(bytes)) return { text: new TextDecoder('utf-16le').decode(bytes.subarray(2)), enc: 'utf-16le (BOM)' };
+    if (BOM_UTF16BE(bytes)) return { text: new TextDecoder('utf-16be').decode(bytes.subarray(2)), enc: 'utf-16be (BOM)' };
+    if (BOM_UTF8(bytes)) return { text: new TextDecoder('utf-8').decode(bytes.subarray(3)), enc: 'utf-8 (BOM)' };
+    const head = new TextDecoder('windows-1252').decode(bytes.subarray(0, 4096));
+    const declared = (head.match(/charset\s*=\s*["']?\s*([A-Za-z0-9_-]+)/i) || [])[1];
+    if (declared &amp;&amp; !/^utf-?8$/i.test(declared)) {
+      try { return { text: new TextDecoder(declared.toLowerCase(), { fatal: true }).decode(bytes), enc: declared.toLowerCase() }; }
+      catch (e) { /* заявленная кодировка не подошла — идём дальше */ }
+    }
+    try { return { text: new TextDecoder('utf-8', { fatal: true }).decode(bytes), enc: 'utf-8' }; }
+    catch (e) { return { text: new TextDecoder('windows-1251').decode(bytes), enc: 'windows-1251' }; }
+  }
+  /* HTML: кодировку в документе принудительно переводим в UTF-8, иначе браузер
+     прочитает старый &lt;meta charset="windows-1251"&gt; и снова покажет «иероглифы». */
+  function htmlAsUtf8(text) {
+    const meta = '&lt;meta charset="utf-8"&gt;';
+    let out = text.replace(/&lt;meta[^&gt;]*charset\s*=\s*["']?[A-Za-z0-9_-]+["']?[^&gt;]*&gt;/gi, '');
+    if (/&lt;head[^&gt;]*&gt;/i.test(out)) return out.replace(/&lt;head[^&gt;]*&gt;/i, m =&gt; m + meta);
+    if (/&lt;html[^&gt;]*&gt;/i.test(out)) return out.replace(/&lt;html[^&gt;]*&gt;/i, m =&gt; m + '&lt;head&gt;' + meta + '&lt;/head&gt;');
+    return meta + out;
+  }
+  function viewBlob(p, bytes) {
+    const name = p.split('/').pop();
+    if (!TEXT_EXT.test(name)) return { blob: new Blob([bytes], { type: mimeFor(name) }), enc: null };
+    const { text, enc } = decodeText(bytes);
+    if (/\.(html?|xhtml)$/i.test(name)) return { blob: new Blob([htmlAsUtf8(text)], { type: 'text/html;charset=utf-8' }), enc };
+    if (/\.svg$/i.test(name)) return { blob: new Blob([text], { type: 'image/svg+xml;charset=utf-8' }), enc };
+    const type = (/\.(json|jsonc)$/i.test(name) ? 'application/json' : 'text/plain') + ';charset=utf-8';
+    return { blob: new Blob([text], { type }), enc };
+  }
+  async function openFile(p) {
+    const u = urlFor(p);
+    const abs = u ? absUrl(u) : null;
+    let cross = false;
+    try { cross = !!abs &amp;&amp; /^https?:/.test(abs) &amp;&amp; new URL(abs).hostname !== location.hostname; } catch (e) {}
+    /* HTML/текст даже с чужого CDN прогоняем через перекодировку, иначе сервер
+       может отдать его без charset — браузер покажет кракозябры. */
+    if (cross &amp;&amp; !TEXT_EXT.test(p.split('/').pop())) { window.open(abs, '_blank', 'noopener'); return; }
+    const w = window.open('about:blank', '_blank');       // открываем СРАЗУ (иначе попап-блокер)
+    try { w.document.title = 'Загрузка…'; w.document.body.style.background = '#111'; } catch (e) {}
+    const b = await fetchBytes(p);
+    if (b instanceof Uint8Array) {
+      const { blob, enc } = viewBlob(p, b);
+      const bu = URL.createObjectURL(blob);
+      if (w &amp;&amp; !w.closed) w.location.href = bu; else window.open(bu, '_blank');
+      setTimeout(() =&gt; URL.revokeObjectURL(bu), 10 * 60 * 1000);
+      if (enc) log('Открыт «' + p.split('/').pop() + '»: исходная кодировка ' + enc + ' → показан как UTF-8.');
+    } else if (cross) {
+      if (w &amp;&amp; !w.closed) w.location.href = abs; else window.open(abs, '_blank', 'noopener');
+      log('Байты файла недоступны странице (CORS) — открыл прямую ссылку CDN: ' + p.split('/').pop());
+    } else {
+      if (w) w.close();
+      log('Не удалось открыть «' + p.split('/').pop() + '»: ' + (b &amp;&amp; b.http ? 'HTTP ' + b.http : (b &amp;&amp; b.err) || 'нет ссылки'));
+    }
+  }
+  async function copyLink(p) {
+    const u = urlFor(p);
+    if (u &amp;&amp; !u.startsWith('zai:') &amp;&amp; !u.startsWith('blob:')) { await copyText(absUrl(u), 'Прямая ссылка скопирована: ' + p.split('/').pop()); return; }
+    log('Прямой URL у файла нет (доступ через API сайта) — беру байты и копирую временную blob-ссылку…');
+    const b = await fetchBytes(p);
+    if (b instanceof Uint8Array) {
+      const bu = URL.createObjectURL(new Blob([b], { type: mimeFor(p) }));
+      await copyText(bu, 'Скопирована временная ссылка (blob) — работает только в этом браузере, пока жива вкладка.');
+    } else log('Не удалось получить файл для ссылки: ' + p);
+  }
+  /* оглавление папки: генерируем аккуратную страницу-список с прямыми ссылками */
+  function openDirIndex(dir) {
+    const items = PATHS.filter(p =&gt; p.startsWith(dir + '/'));
+    if (!items.length) { log('В папке нет известных файлов: ' + dir); return; }
+    let known = 0, tot = 0;
+    const rows = items.map(p =&gt; {
+      const rel = p.slice(dir.length + 1);
+      const u = urlFor(p);
+      const sz = sizeOf(p); if (sz != null) { known++; tot += sz; }
+      const link = (u &amp;&amp; !u.startsWith('zai:') &amp;&amp; !u.startsWith('blob:'))
+        ? '&lt;a href="' + esc(absUrl(u)) + '" target="_blank" rel="noopener" style="color:#8fb7ff"&gt;' + esc(rel) + '&lt;/a&gt;'
+        : '&lt;span&gt;' + esc(rel) + '&lt;/span&gt; &lt;i style="color:#777"&gt;(байты доступны только через панель: API сайта)&lt;/i&gt;';
+      return '&lt;li style="margin:3px 0"&gt;' + link + (sz != null ? ' — &lt;b style="color:#7fbf7f"&gt;' + human(sz) + '&lt;/b&gt;' : '') + '&lt;/li&gt;';
+    }).join('');
+    const page = '&lt;!DOCTYPE html&gt;&lt;html lang="ru"&gt;&lt;head&gt;&lt;meta charset="utf-8"&gt;&lt;title&gt;' + esc(dir) + '&lt;/title&gt;&lt;/head&gt;' +
+      '&lt;body style="background:#141420;color:#eee;font:16px/1.6 system-ui,Arial;padding:26px"&gt;' +
+      '&lt;div style="max-width:900px;margin:0 auto"&gt;&lt;h2 style="color:#8fe38f"&gt;📂 ' + esc(dir) + '&lt;/h2&gt;' +
+      '&lt;p&gt;Файлов: ' + items.length + (known ? ' · суммарно ≈' + human(tot) : '') + '&lt;/p&gt;&lt;ul style="padding-left:22px"&gt;' + rows + '&lt;/ul&gt;' +
+      '&lt;p style="color:#777;font-size:14px;margin-top:20px"&gt;Сгенерировано Workspace Rescue V1 · ссылки открываются вашей сессией сайта&lt;/p&gt;&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;';
+    const w = window.open('about:blank', '_blank');
+    const bu = URL.createObjectURL(new Blob([page], { type: 'text/html;charset=utf-8' }));
+    if (w &amp;&amp; !w.closed) w.location.href = bu; else window.open(bu, '_blank');
+    setTimeout(() =&gt; URL.revokeObjectURL(bu), 10 * 60 * 1000);
+    log('Оглавление папки открыто во вкладке: ' + dir + ' (' + items.length + ' файлов)');
+  }
+  async function saveOneLogged(p) {
+    if (busy) { log('Идёт скачивание — дождитесь окончания или нажмите СТОП.'); return; }
+    busy = true; STOP = false; runAC = newAbort(); $('#stop').style.display = '';
+    log('Скачиваю файл: ' + p);
+    progShow('скачиваю: ' + p.split('/').pop(), 0, true);
+    const ok = await saveOne(p, runAC.signal);
+    busy = false; runAC = null; $('#stop').style.display = 'none';
+    if (ok) { log('Готово: ' + p.split('/').pop(), 'ok'); progDone('Сохранено: ' + p.split('/').pop()); }
+    else { progHide(); log(STOP ? 'Отменено.' : 'Ошибка скачивания: ' + p); }
+  }
+  $('#tree').addEventListener('contextmenu', e =&gt; {
+    const frow = e.target.closest ? e.target.closest('[data-p]') : null;
+    if (frow) {
+      e.preventDefault();
+      const p = frow.dataset.p;
+      showCM(e.clientX, e.clientY, [
+        { t: '🔗 Открыть в новой вкладке', f: () =&gt; openFile(p) },
+        { t: '📋 Копировать прямую ссылку', f: () =&gt; copyLink(p) },
+        { t: '⬇️ Скачать файл', f: () =&gt; saveOneLogged(p) },
+        { t: '📄 Копировать путь', f: () =&gt; copyText(p, 'Путь скопирован.') }
+      ]);
+      return;
+    }
+    const dsum = e.target.closest ? e.target.closest('[data-dirsum]') : null;
+    if (dsum) {
+      e.preventDefault();
+      const d = dsum.dataset.dirsum;
+      showCM(e.clientX, e.clientY, [
+        { t: '📂 Оглавление папки (вкладка)', f: () =&gt; openDirIndex(d) },
+        { t: '🌐 Страница чата на сайте', f: () =&gt; window.open(location.href.split('?')[0], '_blank', 'noopener') },
+        { t: '📄 Копировать путь папки', f: () =&gt; copyText(d, 'Путь папки скопирован.') },
+        { t: '☑ Отметить папку', f: () =&gt; { for (const q of descendants(d)) SEL.add(q); syncDirs(); stat(); syncFileChecks(); } },
+        { t: '☐ Снять отметку с папки', f: () =&gt; { for (const q of descendants(d)) SEL.delete(q); syncDirs(); stat(); syncFileChecks(); } }
+      ]);
+    }
+  });
+  function syncFileChecks() {
+    for (const cb of $('#tree').querySelectorAll('input[data-p]')) cb.checked = SEL.has(cb.dataset.p);
+  }
+  document.addEventListener('click', e =&gt; { if (!CM.contains(e.target)) hideCM(); }, true);
+  document.addEventListener('scroll', hideCM, true);
+  addEventListener('keydown', e =&gt; { if (e.key === 'Escape') hideCM(); });
+  addEventListener('resize', () =&gt; { hideCM(); if (UI.dock) applyDock(); else fitLater(); });
+
+  /* ------------------------------ фильтр/всё ------------------------------- */
+  let flT = null;
+  $('#fl').oninput = () =&gt; { clearTimeout(flT); TREE_LIMIT = 0; flT = setTimeout(renderTree, 150); };   // дебаунс — не тормозим набор
+  const SORTS = ['alpha', 'size', 'none'];
+  const SORT_LABEL = { alpha: 'СОРТ: А-Я', size: 'СОРТ: РАЗМЕР', none: 'СОРТ: СЕРВЕР' };
+  function applySortLabel() { $('#sortBtn').textContent = SORT_LABEL[UI.sort] || SORT_LABEL.alpha; }
+  $('#sortBtn').onclick = () =&gt; {
+    UI.sort = SORTS[(SORTS.indexOf(UI.sort) + 1) % SORTS.length];
+    saveUI(); applySortLabel(); renderTree();
+    log('сортировка: ' + (UI.sort === 'alpha' ? 'А-Я' : UI.sort === 'size' ? 'по размеру' : 'как на сервере'));
+  };
+  /* одна кнопка-переключатель: всё отмечено — снимает, иначе отмечает всё */
+  function toggleAll() {
+    const vis = visible();
+    const allOn = vis.length &gt; 0 &amp;&amp; vis.every(p =&gt; SEL.has(p));
+    for (const p of vis) { if (allOn) SEL.delete(p); else SEL.add(p); }
+    syncFileChecks(); syncDirs(); stat();
+  }
+  $('#all').onclick = toggleAll;
+  /* значок показывает состояние: ☑ всё отмечено / ☐ ничего */
+  function paintToggle() {
+    const b = $('#all'); if (!b) return;
+    const vis = visible();
+    const allOn = vis.length &gt; 0 &amp;&amp; vis.every(p =&gt; SEL.has(p));
+    b.textContent = allOn ? '\u2610' : '\u2611';
+    b.title = allOn ? 'Снять все отметки' : 'Отметить всё (все файлы списка)';
+  }
+
+  /* --------------------------- шкала памяти (п.16) -------------------------- */
+  function updateMem() {
+    if (DEAD) return;
+    if (!showingSizes()) {
+      const t0 = $('#memTxt'), f0 = $('#memFill');
+      if (t0) t0.textContent = 'память: подсчёт размеров выключен (включить — НАСТРОЙКИ)';
+      if (f0) f0.style.width = '0';
+      return;
+    }
+    let used = 0, unk = 0;
+    for (const p of PATHS) { const s = shownSizeOf(p); if (s == null) unk++; else used += s; }
+    if (quotaHint &amp;&amp; typeof quotaHint.used === 'number') used = Math.max(used, quotaHint.used);
+    let total = 0;
+    if (UI.quotaGB &gt; 0) total = UI.quotaGB * 1073741824;
+    else if (quotaHint &amp;&amp; quotaHint.total) total = quotaHint.total;
+    else if (quotaHint &amp;&amp; quotaHint.free != null) total = used + quotaHint.free;
+    const txt = $('#memTxt'), fill = $('#memFill');
+    if (!PATHS.length) { txt.textContent = 'память: список пуст — нажмите ОБНОВИТЬ'; fill.style.width = '0'; return; }
+    const files = ' · файлов: ' + PATHS.length + (unk ? ' (без размера: ' + unk + ')' : '');
+    if (total &gt; 0) {
+      const pct = Math.max(0, Math.min(100, used / total * 100));
+      const srcTag = UI.quotaGB &gt; 0 ? ' (объём из настроек)' : ((quotaHint &amp;&amp; quotaHint.src === 'api') ? ' (объём из API сайта)' : '');
+      txt.textContent = 'память области: занято ~' + human(used) + ' из ' + human(total) + ' · свободно ~' + human(Math.max(0, total - used)) + srcTag + (unk ? ' (у ' + unk + ' файлов размер не определён)' : '');
+      fill.style.width = pct.toFixed(1) + '%';
+      fill.style.background = pct &gt; 90 ? '#c04545' : pct &gt; 70 ? '#c09045' : '#3aa757';
+    } else {
+      txt.textContent = 'занято ~' + human(used) + files + ' · общий объём сайт не сообщает — можно задать в Настройках';
+      fill.style.width = '0';
+    }
+  }
+
+  /* ------------------------- определение размеров (п.3) --------------------- */
+  let sizeBusy = false, sizeAC = null;
+  async function probeSize(u, signal) {
+    if (u.startsWith('zai:')) return await zaiContent(u.slice(4), signal, true);   // у z.ai размер знает только их API
+    /* защита от «одинаковых 137 Б»: если сервер вместо файла отдал JSON-ошибку
+       или HTML-заглушку — такой content-length за размер НЕ считаем */
+    const abs = absUrl(u);
+    const pth = abs.split('?')[0];
+    const okCt = ct =&gt; {
+      if (!ct) return true;
+      ct = ct.toLowerCase();
+      if (ct.includes('json')) return /\.(json|ipynb|webmanifest)$/i.test(pth);
+      if (ct.includes('text/html')) return /\.(html?|xhtml)$/i.test(pth);
+      if (ct.includes('text/plain') &amp;&amp; /\.(png|jpe?g|gif|webp|zip|pdf|mp4|mp3)/i.test(pth)) return false;
+      return true;
+    };
+    try {
+      const r = await fetch(abs, { method: 'HEAD', credentials: 'include', signal });
+      if (r.ok &amp;&amp; okCt(r.headers.get('content-type'))) { const cl = r.headers.get('content-length'); if (cl) return +cl; }
+    } catch (e) {}
+    try {
+      const r = await fetch(abs, { method: 'GET', credentials: 'include', signal, headers: { Range: 'bytes=0-0' } });
+      const cr = r.headers.get('content-range');
+      const ct = r.headers.get('content-type');
+      try { r.body &amp;&amp; r.body.cancel(); } catch (e) {}
+      if ((r.status === 206 || r.ok) &amp;&amp; okCt(ct)) {
+        if (cr) { const m = /\/(\d+)\s*$/.exec(cr); if (m) return +m[1]; }
+        const cl = r.headers.get('content-length');
+        if (r.status !== 206 &amp;&amp; cl) return +cl;
+      }
+    } catch (e) {}
+    try {   /* последний шанс: обычный GET — читаем только заголовки и сразу гасим тело */
+      const r = await fetch(abs, { credentials: 'include', signal });
+      const cl = r.headers.get('content-length');
+      const ct = r.headers.get('content-type');
+      try { r.body &amp;&amp; r.body.cancel(); } catch (e) {}
+      if (r.ok &amp;&amp; cl &amp;&amp; okCt(ct)) return +cl;
+    } catch (e) {}
+    if (HAS_BRIDGE) { const s = await extSize(abs); if (s != null) return s; }
+    return null;
+  }
+  async function resolveSizes(manual) {
+    if (sizeBusy) return;
+    const mode = UI.sizesMode || 'full';
+    if (!manual &amp;&amp; mode === 'off') return;   // размеры выключены — сайт не беспокоим
+    if (manual) NEG.clear();                 // ручной запрос перепроверяет и неудавшиеся файлы
+    for (const k of Object.keys(PROBE_WHY)) delete PROBE_WHY[k];
+    PROBE_BUDGET = 32 * 1024 * 1024;         // бюджет подсчёта — на каждый круг свой
+    const limit = manual ? 800 : 400;
+    const todo = [];
+    for (const p of PATHS) {
+      if (SIZEMAP.has(p) || NEG.has(p)) continue;         // точный размер важнее совпадения по имени
+      const u = urlFor(p);
+      if (!u || u.startsWith('blob:')) continue;          // z.ai тоже пробуем — см. probeSize
+      todo.push([p, u]);
+      if (todo.length &gt;= limit) break;
+    }
+    if (!todo.length) { if (manual) log('Размеры уже определены (или недоступны для этого сайта).'); return; }
+    sizeBusy = true;
+    if (manual) log('Запрашиваю размеры: ' + todo.length + ' файлов…');
+    const ac = newAbort();
+    sizeAC = ac;
+    const q = todo.slice(); let got = 0;
+    async function w() {
+      while (q.length) {
+        if (ac.signal.aborted) return;                  // СТОП прерывает и эту работу
+        const [p, u] = q.shift();
+        const s = await probeSize(u, ac.signal);
+        if (okSize(s)) { setSize(p, s); got++; } else NEG.add(p);
+      }
+    }
+    await Promise.all(Array.from({ length: WORKERS }, w));
+    sizeBusy = false; sizeAC = null;
+    updateAllSizes(); stat(); updateMem();
+    if (manual) {
+      log('Размеры получены для ' + got + ' из ' + todo.length + ' файлов' +
+        (PATHS.length &gt; todo.length ? ' (остальные — нажмите кнопку ещё раз)' : '') + '.', got &lt; todo.length ? 'err' : 'ok');
+      const why = Object.keys(PROBE_WHY).map(k =&gt; k + ' — ' + PROBE_WHY[k]).join(', ');
+      if (why) log('Причины, по которым размер не определён: ' + why + '.', 'err');
+    }
+  }
+
+  /* ------------------------------ ОБНОВИТЬ (п.6) --------------------------- */
+  const KNOWN = new Set();
+  function applyPaths(np) {
+    const set = new Set(np);
+    const added = [];
+    for (const p of np) if (!KNOWN.has(p)) { KNOWN.add(p); SEL.add(p); added.push(p); }
+    for (const p of [...KNOWN]) if (!set.has(p)) KNOWN.delete(p);
+    for (const p of [...SEL]) if (!KNOWN.has(p)) SEL.delete(p);
+    PATHS = [...new Set(np)];           // порядок сервера сохраняем (для режима «без сортировки»)
+    PATH_IDX_GEN++;                     // индекс путей для поиска шаблона устарел
+    return added;
+  }
+  async function refresh(quiet) {
+    if (DEAD) return;
+    SILENT = !!quiet;
+    try {
+      pollPerf();
+      let preset = [];
+      if (IS_QWEN) {
+        if (getChat()) {
+          try {
+            const r = await fetch('/api/v2/chat/' + qid() + '/workspace-files', { credentials: 'include' });
+            const j = await r.json();
+            scanQuota(j);
+            let dw = j &amp;&amp; j.data;
+            if (dw &amp;&amp; !Array.isArray(dw)) dw = dw.files || dw.paths || dw.list || dw.items || dw.tree || null;
+            for (const x of (Array.isArray(dw) ? dw : [])) {
+              if (typeof x === 'string') { const rel = normPath(x); if (rel) preset.push(rel); }
+              else if (x &amp;&amp; typeof x === 'object') {
+                const nk = Object.keys(x).find(NAME_KEY);
+                if (nk) {
+                  const rel = normPath(x[nk]);
+                  if (rel) {
+                    preset.push(rel);
+                    const sk = Object.keys(x).find(k =&gt; SIZE_KEY(k) &amp;&amp; okSize(x[k]));
+                    if (sk) setSize(rel, x[sk]);
+                  }
+                }
+              }
+            }
+          } catch (e) { log('Пресет Qwen недоступен: ' + e.message); }
+        }
+        const hv = harvestQwen();
+        for (const [k, v] of hv.map) if (!URLMAP.has(k)) URLMAP.set(k, v);
+        if (hv.added) log('Qwen: подобрано CDN-ссылок (изображения/артефакты): +' + hv.added + ' (всего ' + hv.map.size + ')');
+        if (hv.map.size) preset = [...new Set([...preset, ...hv.map.keys()])];
+      }
+      if (!preset.length &amp;&amp; IS_ZAI) {
+        const ms = location.pathname.match(/\/s\/([0-9a-f-]{8,})/i);
+        if (!zaiToken()) log('Z.ai: нет токена — войдите в аккаунт и нажмите ОБНОВИТЬ.');
+        else {
+          setZaiTarget();
+          await zaiFetchWsId();
+          let lst = await zaiList();
+          if (!lst.length &amp;&amp; !quiet) {                    // тяжёлый пробуждающий цикл — только вручную
+            log('Z.ai: workspace спит — бужу сам…');
+            await zaiWake(); lst = await zaiList();
+            for (let i = 0; i &lt; 4 &amp;&amp; !lst.length; i++) { await new Promise(r =&gt; setTimeout(r, 2500)); lst = await zaiList(); }
+            if (!lst.length &amp;&amp; zaiDiag.lsStatus === 429) {
+              try { const rr = await fetch(location.origin + '/api/v1/web-dev/workspaces/restart', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + zaiToken() }, body: JSON.stringify({ chatId: zaiId }) }); zaiDiag.wake.push('restart:' + rr.status); } catch (e) {}
+              for (let i = 0; i &lt; 3 &amp;&amp; !lst.length; i++) { await new Promise(r =&gt; setTimeout(r, 3000)); lst = await zaiList(); }
+            }
+          }
+          preset = lst;
+          if (!lst.length) log('Z.ai: список пуст. lsHTTP=' + zaiDiag.lsStatus + ' | ' + zaiDiag.lsBody.slice(0, 100));
+        }
+      }
+      const before = PATHS.slice();
+      let added = [];
+      if (preset.length) { added = applyPaths(preset); }
+      else { const d = discover(); added = applyPaths(d.paths); }
+      $('#c').textContent = HOST.replace(/^www\./, '') + ' | чат ' + ((qid() || '?').slice(0, 8)) + '… | путей: ' + PATHS.length;
+      const changed = PATHS.length !== before.length || PATHS.some((p, i) =&gt; p !== before[i]);
+      SILENT = false;
+      if (quiet) {
+        /* п.9: в авто-режиме — только про новые файлы, ничего лишнего */
+        if (changed) renderTree(); else { updateAllSizes(); stat(); updateMem(); }
+        for (const p of added.slice(0, 8)) log('появился новый файл: ' + p, 'new');
+        if (added.length &gt; 8) log('…и ещё ' + (added.length - 8) + ' новых', 'new');
+        if (showingSizes() &amp;&amp; added.length) idle(() =&gt; resolveSizes(false));
+        return;
+      }
+      renderTree();
+      const withUrl = PATHS.filter(p =&gt; urlFor(p)).length;
+      if (!PATHS.length) log('Путей 0. Сверните и раскройте панель файлов сайта (или чат туда-обратно), затем ОБНОВИТЬ.');
+      else if (!withUrl) log('Пути есть, ссылок нет: ПОЙМАТЬ ССЫЛКУ и кликните скачивание одного файла.');
+      else log('Обновлено: путей ' + PATHS.length + ', со ссылками ' + withUrl + '.');
+      if (showingSizes()) idle(() =&gt; resolveSizes(false));
+      updateMem();
+    } catch (e) {
+      SILENT = false;
+      log('ОШИБКА ОБНОВЛЕНИЯ: ' + errRu(e.message), 'err');
+    }
+  }
+  $('#refresh').onclick = () =&gt; { if (busy) { log('Идёт скачивание — сначала нажмите СТОП.'); return; } log('Обновляю список…'); refresh(false); };
+
+  $('#arch').onclick = async () =&gt; {
+    if (!IS_ZAI) { log('Серверный архив доступен только на chat.z.ai.'); return; }
+    if (busy) { log('Уже идёт скачивание.'); return; }
+    busy = true; STOP = false; runAC = newAbort(); $('#stop').style.display = '';
+    log('Z.ai: запрашиваю серверный архив ВСЕЙ рабочей области…');
+    progShow('сервер пакует архив…', 0, true);
+    const blob = await zaiArchive();
+    busy = false; runAC = null; $('#stop').style.display = 'none';
+    if (STOP) { progHide(); log('Отменено.'); return; }
+    if (blob &amp;&amp; blob.size &gt; 200) {
+      const nm = 'zai_' + ((zaiId || 'workspace').slice(0, 8)) + '_' + new Date().toISOString().slice(0, 10) + '.zip';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = nm;
+      document.body.appendChild(a); a.click();
+      setTimeout(u =&gt; URL.revokeObjectURL(u), 10 * 60 * 1000, a.href);
+      a.remove();
+      log('ГОТОВО: ' + (blob.size / 1e6).toFixed(1) + ' МБ -&gt; ' + nm + ' (ВСЯ область, независимо от галочек).', 'ok');
+      progDone('ГОТОВО: ' + (blob.size / 1e6).toFixed(1) + ' МБ');
+    } else { progHide(); log('Серверный архив не удался. Используйте СКАЧАТЬ ZIP.'); }
+  };
+
+  /* --------------------------- ПОЙМАТЬ ССЫЛКУ ------------------------------ */
+  $('#catch').onclick = () =&gt; {
+    if (IS_ZAI || IS_QWEN) { log('На этом сайте ловля не нужна: есть готовый пресет. Нажмите ОБНОВИТЬ, затем СКАЧАТЬ ZIP.'); return; }
+    armed = extraUrls.length; pollPerf(); log('ЛОВЛЮ: кликните штатную кнопку скачивания ОДНОГО файла на сайте.');
+  };
+  /* Поиск шаблона ссылки. Раньше на каждый адрес перебирались ВСЕ файлы ×3
+     варианта кодировки — на больших списках это заметно жгло процессор каждую
+     секунду. Теперь есть индекс путей и набор закодированных путей: ищем хвост
+     адреса по сегментам и значение параметра целиком. */
+  let PATH_INDEX = new Set(), ENC_INDEX = new Map(), PATH_IDX_GEN = 0, PATH_IDX_USE = -1;
+  function pathIndexes() {
+    if (PATH_IDX_USE === PATH_IDX_GEN) return;
+    PATH_IDX_USE = PATH_IDX_GEN;
+    PATH_INDEX = new Set(PATHS);
+    ENC_INDEX = new Map();
+    for (const p of PATHS) ENC_INDEX.set(encodeURIComponent(p), p);
+  }
+  function matchPathInUrl(u) {
+    pathIndexes();
+    let url; try { url = new URL(u, location.href); } catch (e) { return null; }
+    const parts = (url.pathname + url.search).split('/').filter(Boolean);
+    for (let i = 0; i &lt; parts.length; i++) {
+      const raw = parts.slice(i).join('/');
+      if (raw.length &lt;= 4) continue;
+      let dec = raw; try { dec = decodeURI(raw); } catch (e) { continue; }
+      if (!PATH_INDEX.has(dec)) continue;
+      const at = u.indexOf(raw);
+      if (at &lt; 0) continue;
+      const tok = raw === dec ? '{R}' : (raw === encodeURIComponent(dec) ? '{E}' : '{P}');
+      return { path: dec, at, len: raw.length, tok };
+    }
+    for (const pair of url.search.slice(1).split('&amp;')) {
+      const eq = pair.indexOf('=');
+      if (eq &lt; 0) continue;
+      const v = pair.slice(eq + 1);
+      const p = ENC_INDEX.get(v);
+      if (p &amp;&amp; p.length &gt; 4) { const at = u.indexOf(v); if (at &gt;= 0) return { path: p, at, len: v.length, tok: '{E}' }; }
+    }
+    return null;
+  }
+  const iTimerCap = setInterval(() =&gt; {
+    if (DEAD) return;
+    if (TEMPLATE || IS_QWEN || IS_ZAI || document.hidden) return;
+    pollPerf();
+    const pool = armed &gt;= 0 ? extraUrls.slice(armed) : extraUrls.slice(-40);
+    for (const { u } of pool.slice().reverse()) {
+      const hit = matchPathInUrl(u);
+      if (hit) {
+        TEMPLATE = u.slice(0, hit.at) + hit.tok + u.slice(hit.at + hit.len);
+        armed = -1;
+        log('Шаблон пойман (' + u.slice(0, 60) + '…)');
+        log('Теперь СКАЧАТЬ ZIP.');
+        stat();
+        return;
+      }
+      if (!PATHS.length &amp;&amp; /^https?:/.test(u) &amp;&amp; FILE_EXT.test(decodeURIComponent(new URL(u, location.href).pathname))) {
+        const rel = relFromUrl(u);
+        if (rel) { PATHS = [rel]; URLMAP.set(rel, u); SEL = new Set(PATHS); PATH_IDX_GEN++; renderTree();
+          log('Пойман образец файла: ' + rel + '. Обновите список (ОБНОВИТЬ) для полноты.'); return; }
+      }
+    }
+  }, 1000);
+
+  /* --------------------- СКАЧАТЬ ZIP (п.7,8,10,18) -------------------------- */
+  function zipBaseName(list) {
+    /* имя — по ОБЩЕЙ папке выделения: всё внутри «1/3/» → «3.zip», а не «1.zip» */
+    let base = '';
+    if (list.length === 1) base = list[0].split('/').pop().replace(/\.[A-Za-z0-9]{1,10}$/, '');
+    else {
+      const split = list.map(p =&gt; p.split('/'));
+      const first = split[0];
+      let i = 0;
+      while (i &lt; first.length - 1 &amp;&amp; split.every(s =&gt; s.length &gt; i + 1 &amp;&amp; s[i] === first[i])) i++;
+      if (i &gt; 0) base = first[i - 1];
+    }
+    if (!base) {
+      const d = new Date(), z = n =&gt; String(n).padStart(2, '0');
+      base = 'rescue_' + d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + '_' + z(d.getHours()) + z(d.getMinutes());
+    }
+    base = base.replace(/[\\/:*?"&lt;&gt;|\x00-\x1f]+/g, '_').replace(/^\.+/, '').slice(0, 80);
+    return base || 'files';
+  }
+  $('#stop').onclick = () =&gt; {
+    STOP = true;
+    if (runAC) { try { runAC.abort(); } catch (e) {} }       // п.10: мгновенно рвём идущие запросы
+    if (sizeAC) { try { sizeAC.abort(); } catch (e) {} }     // и запросы размеров тоже
+    log('СТОП — отменяю…');
+  };
+  $('#go').onclick = async () =&gt; {
+    if (busy) { log('Уже идёт.'); return; }
+    const list = visible().filter(p =&gt; SEL.has(p) &amp;&amp; urlFor(p));
+    if (!list.length) { log('Нет отмеченных со ссылками. ОБНОВИТЬ или ПОЙМАТЬ ССЫЛКУ.'); return; }
+    busy = true; STOP = false; runAC = newAbort(); $('#stop').style.display = '';
+    progShow('подготовка…', 0, true);
+    const signal = runAC.signal;
+    const allSelected = PATHS.length &gt; 0 &amp;&amp; list.length === PATHS.length;
+    if (IS_ZAI &amp;&amp; zaiMode === 'chat' &amp;&amp; allSelected) {
+      log('Z.ai: отмечено ВСЁ — пробую серверный архив всей области (один запрос)…');
+      progShow('сервер пакует архив всей области…', 0, true);
+      const blob = await zaiArchive();
+      if (!STOP &amp;&amp; blob &amp;&amp; blob.size &gt; 200) {
+        const nm = 'zai_' + ((zaiId || 'workspace').slice(0, 8)) + '_' + new Date().toISOString().slice(0, 10) + '.zip';
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = nm;
+        document.body.appendChild(a); a.click();
+        setTimeout(u =&gt; URL.revokeObjectURL(u), 10 * 60 * 1000, a.href);
+        a.remove();
+        log('ГОТОВО: серверный архив ' + (blob.size / 1e6).toFixed(1) + ' МБ -&gt; ' + nm, 'ok');
+        progDone('ГОТОВО: серверный архив ' + (blob.size / 1e6).toFixed(1) + ' МБ');
+        busy = false; runAC = null; $('#stop').style.display = 'none';
+        return;
+      }
+      if (STOP) { progHide(); log('ОСТАНОВЛЕНО: отменено.'); busy = false; runAC = null; $('#stop').style.display = 'none'; return; }
+      log('Серверный архив недоступен — качаю пофайлово выбранное.');
+    }
+    /* очень крупные одиночные файлы — мимо ZIP (п.18: без ограничений по объёму) */
+    const huge = list.filter(p =&gt; (sizeOf(p) || 0) &gt; HUGE_BYTES);
+    const zipList = huge.length ? list.filter(p =&gt; !huge.includes(p)) : list;
+    const base = zipBaseName(list);
+    const { sz } = selSize(list);
+    log('Качаю ВЫБРАННОЕ: ' + list.length + ' файлов' + (sz ? ', ~' + human(sz) : '') + ', в ' + WORKERS + ' потоков…');
+    const q = zipList.slice();
+    let batch = [], bb = 0, part = 1, done = 0, bad = 0, last = 0;
+    let flushing = null;
+    const t0 = Date.now();
+    async function flush() {
+      if (flushing) return flushing;
+      if (!batch.length || STOP) { batch = []; bb = 0; return; }
+      const entries = batch;
+      batch = []; bb = 0;
+      flushing = (async () =&gt; {
+      progShow('сборка ZIP в фоне (' + entries.length + ' файлов)…', 100, true);
+      const blob = await makeZipAsync(entries);
+      if (STOP) return;
+      if (!blob) { bad += entries.length; return; }     // архив не собрался — сообщаем, а не молчим
+      const nm = (part === 1 ? base : base + '_part' + part) + '.zip';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = nm;
+      document.body.appendChild(a); a.click();
+      setTimeout(u =&gt; URL.revokeObjectURL(u), 10 * 60 * 1000, a.href);   // ссылка живёт до конца загрузки
+      a.remove();
+      log('АРХИВ ' + nm + ': ' + entries.length + ' файлов, ' + (blob.size / 1e6).toFixed(1) + ' МБ', 'ok');
+      part++;
+      await new Promise(r =&gt; setTimeout(r, 800));
+      })();
+      try { await flushing; } finally { flushing = null; }
+    }
+    async function worker() {
+      while (q.length &amp;&amp; !STOP) {
+        const p = q.shift();
+        try {
+          const res = await fetchBytes(p, signal);
+          if (flushing) await flushing;
+          if (STOP) break;
+          if (!res) { bad++; if (bad &lt; 6) log('  нет ссылки: ' + p, 'err'); continue; }
+          if (!(res instanceof Uint8Array)) { if (res.err !== 'abort') { bad++; if (bad &lt; 6) log('  ' + (res.http ? 'HTTP ' + res.http : res.err) + ': ' + p, 'err'); } continue; }
+          batch.push({ name: p, u8: res }); bb += res.length; done++;
+          progShow('скачано ' + (done + bad) + ' из ' + list.length + ' · получено ' + human(bb) + ' · ' + (done / ((Date.now() - t0) / 1000)).toFixed(1) + ' файл/с', (done + bad) / list.length * 100);
+          if (done - last &gt;= 40) { last = done; log('  …' + done + '/' + zipList.length + '  (' + (done / ((Date.now() - t0) / 1000)).toFixed(1) + ' файл/с)'); }
+          if (batch.length &gt;= SPLIT_COUNT || bb &gt;= SPLIT_BYTES) await flush();
+        } catch (e) { if (!STOP) { bad++; if (bad &lt; 6) log('  ошибка ' + p + ': ' + errRu(e.message), 'err'); } }
+      }
+    }
+    if (huge.length &amp;&amp; !STOP) {
+      log('Крупные файлы (' + huge.length + ' шт, &gt;700 МБ) сохраняю отдельными файлами…');
+      for (const p of huge) {
+        if (STOP) break;
+        log('  ⬇ ' + p + ' (' + human(sizeOf(p)) + ')…');
+        progShow('⬇ крупный файл: ' + p.split('/').pop(), 0, true);
+        const ok = await saveOne(p, signal);
+        if (ok) done++; else if (!STOP) bad++;
+      }
+    }
+    await Promise.all(Array.from({ length: WORKERS }, worker));
+    if (STOP) { progHide(); log('ОСТАНОВЛЕНО: скачивание отменено, ничего не сохранено.'); }
+    else {
+      await flush();
+      log('ГОТОВО за ' + ((Date.now() - t0) / 1000).toFixed(1) + ' с: ' + done + ' файлов, ошибок ' + bad + ', архивов ' + (part - 1) + '.', 'ok');
+      if (part - 1 &gt; 1) log('Архивы распакуйте в ОДНУ папку.');
+      progDone('ГОТОВО: ' + done + ' файлов, архивов ' + (part - 1) + (bad ? ', ошибок ' + bad : ''));
+    }
+    busy = false; runAC = null; $('#stop').style.display = 'none';
+    stat(); updateMem();
+  };
+
+  /* ------------------------------ СКАЧАТЬ КАК ЕСТЬ ------------------------- */
+  $('#goRaw').onclick = async () =&gt; {
+    if (busy) { log('Уже идёт скачивание.'); return; }
+    const list = visible().filter(p =&gt; SEL.has(p) &amp;&amp; urlFor(p));
+    if (!list.length) { log('Ничего не отмечено или нет ссылок.'); return; }
+    if (list.length &gt; 30 &amp;&amp; !confirm('Скачать ' + list.length + ' файлов по отдельности, в родных форматах?\nБраузер спросит разрешение на множественное скачивание — разрешите его.')) return;
+    busy = true; STOP = false; runAC = newAbort(); $('#stop').style.display = '';
+    progShow('подготовка…', 0, true);
+    const { sz } = selSize(list);
+    log('СКАЧИВАЮ КАК ЕСТЬ: ' + list.length + ' файлов' + (sz ? ', ~' + human(sz) : '') + ', в родных форматах (без ZIP)…');
+    if (list.length &gt; 1) log('Разрешите браузеру множественное скачивание, когда спросит.');
+    let done = 0, bad = 0;
+    for (const p of list) {
+      if (STOP) break;
+      progShow('сохраняю ' + (done + bad + 1) + ' из ' + list.length + ': ' + p.split('/').pop(), (done + bad) / list.length * 100);
+      const ok = await saveOne(p, runAC.signal);
+      if (ok) done++; else if (!STOP) { bad++; if (bad &lt; 6) log('  ошибка: ' + p); }
+      if (!STOP &amp;&amp; done % 10 === 0) log('  …' + done + '/' + list.length);
+      if (!STOP) await new Promise(r =&gt; setTimeout(r, 250));
+    }
+    if (STOP) { progHide(); log('ОСТАНОВЛЕНО: отменено, несохранённые файлы не скачивались.'); }
+    else { log('ГОТОВО: сохранено как есть ' + done + ' файлов, ошибок ' + bad + '.', 'ok'); progDone('ГОТОВО: сохранено ' + done + ' файлов'); }
+    busy = false; runAC = null; $('#stop').style.display = 'none';
+  };
+
+  /* ------------------------------ НАСТРОЙКИ -------------------------------- */
+  $('#openQ').onclick = () =&gt; window.open('https://chat.qwen.ai', '_blank', 'noopener');
+  $('#openZ').onclick = () =&gt; window.open('https://chat.z.ai', '_blank', 'noopener');
+  function fontMode() { const v = UI.font; return (v === 'small' || v === 'medium') ? v : 'big'; }
+  function applyFontMode() {
+    try {
+      const m = fontMode();
+      P.classList.toggle('wzrFontSm', m === 'small');
+      P.classList.toggle('wzrFontMd', m === 'medium');
+    } catch (e) {}
+  }
+  applyFontMode();
+  $('#fsMode').value = fontMode();
+  function applyFontNow(v) {
+    UI.font = (v === 'small' || v === 'medium') ? v : 'big';
+    saveUI();
+    applyFontMode();
+    try { renderTree(); } catch (e) {}      // список сразу пересчитывает строки
+    fitHeight();
+  }
+  $('#fsMode').onchange = e =&gt; applyFontNow(e.target.value);
+  $('#fsMode').oninput = e =&gt; applyFontNow(e.target.value);
+  $('#szMode').value = UI.sizesMode || 'full';
+  $('#szMode').onchange = e =&gt; {
+    UI.sizesMode = e.target.value || 'full'; saveUI(); applySizesMode(true);
+  };
+  applySizesMode(false);
+  $('#quotaGB').value = UI.quotaGB || 0;
+  $('#quotaGB').onchange = e =&gt; { UI.quotaGB = Math.max(0, +e.target.value || 0); saveUI(); updateMem(); };
+  $('#szNow').onclick = () =&gt; resolveSizes(true);
+
+  function diagJson() {
+    pollPerf();
+    return JSON.stringify({
+      app: 'Workspace Rescue V1', build: WZR_BUILD, host: HOST, path: location.pathname,
+      zai: { mode: zaiMode, id: zaiId, wsId: zaiWsId, diag: zaiDiag },
+      qwen: IS_QWEN, paths: PATHS.length, selected: SEL.size,
+      sizesKnown: SIZEMAP.size, sizesUnknown: NEG.size,
+      template: TEMPLATE, quota: quotaHint, bridge: HAS_BRIDGE, zipWorker: !!zipWorker, ui: UI,
+      sources: [...captured.keys()].slice(0, 60),
+      shapes: [...captured.entries()].slice(0, 14).map(([src2, json]) =&gt; ({
+        src: src2.slice(0, 140),
+        keys: (function sh(n, d) {
+          if (d &gt; 2 || n === null || typeof n !== 'object') return typeof n;
+          if (Array.isArray(n)) return [sh(n[0], d + 1)];
+          const o = {}; for (const k of Object.keys(n).slice(0, 14)) o[k] = sh(n[k], d + 1); return o;
+        })(json, 0)
+      })),
+      lastRequests: reqLog.slice(-60),
+      extraUrls: extraUrls.slice(-30),
+      logTail: L.slice(-80)
+    }, null, 1);
+  }
+  $('#runDiag').onclick = () =&gt; {
+    setTab('main');
+    log('— ДИАГНОСТИКА (V1) —');
+    const withUrl = PATHS.filter(p =&gt; urlFor(p)).length;
+    log('✓ Сайт: ' + HOST + (IS_QWEN ? ' (пресет Qwen)' : IS_ZAI ? ' (пресет Z.ai)' : ' (авторежим)'));
+    log((qid() ? '✓' : '!') + ' Чат: ' + (qid() ? qid().slice(0, 13) + '…' : 'не определён (откройте страницу чата)'));
+    log((PATHS.length ? '✓' : '✗') + ' Файлов в списке: ' + PATHS.length + ' (со ссылками: ' + withUrl + ')');
+    log((HAS_BRIDGE ? '✓' : '!') + ' Мост расширения (обход CORS): ' + (HAS_BRIDGE ? 'подключён' : 'не подключён — режим консоли, часть CDN-файлов может не скачаться'));
+    log((zipWorker ? '✓' : '!') + ' Фоновая сборка ZIP (Web Worker): ' + (zipWorker ? 'работает' : 'недоступна (CSP сайта) — ZIP собирается в основном потоке'));
+    if (IS_ZAI) log((zaiToken() ? '✓' : '✗') + ' Токен z.ai: ' + (zaiToken() ? 'найден' : 'НЕТ — войдите в аккаунт'));
+    log((TEMPLATE || IS_QWEN || IS_ZAI ? '✓' : '✗') + ' Шаблон ссылки: ' + (TEMPLATE ? 'пойман' : ((IS_QWEN || IS_ZAI) ? 'не нужен (пресет)' : 'не пойман — нажмите ПОЙМАТЬ ССЫЛКУ')));
+    log((SIZEMAP.size || !PATHS.length ? '✓' : '!') + ' Размеры: известны у ' + SIZEMAP.size + ' из ' + PATHS.length + (NEG.size ? ' (не удалось определить: ' + NEG.size + ')' : ''));
+    const total = UI.quotaGB &gt; 0 ? UI.quotaGB + ' ГБ (из настроек)' : ((quotaHint &amp;&amp; quotaHint.total) ? human(quotaHint.total) + ' (из API сайта)' : 'не определён — можно задать в Настройках');
+    log('• Общий объём области: ' + total);
+    log('• Панель: ' + (UI.dock ? 'закреплена ' + (UI.dock === 'right' ? 'справа' : 'слева') : 'плавающая') + ', ширина ' + Math.round(P.getBoundingClientRect().width) + ' px');
+    const errs = L.filter(x =&gt; /ОШИБКА|✗|не удалось/i.test(x)).slice(-5);
+    if (errs.length) { log('! Последние ошибки:'); for (const e of errs) log('    ' + e); }
+    else log('✓ Ошибок в логе нет.');
+    log('— конец диагностики —');
+    copyText(diagJson(), 'Диагностика выполнена: результат в логе выше, полный отчёт скопирован в буфер обмена.');
+  };
+  $('#copylog').onclick = () =&gt; copyText(L.join('\n') + '\n\nTEMPLATE=' + TEMPLATE, 'Лог скопирован. Вставляйте ассистенту.');
+
+  /* ------------------------------- авто-режимы ----------------------------- */
+  addEventListener('wzr:show', () =&gt; {
+    UI.hidden = false; saveUI();               // вернули вручную — пусть снова открывается после F5
+    P.style.display = 'flex';                  // ВАЖНО: '' стирает display:flex и панель «оседает» блоком
+    applyDock();
+    fitHeight();
+  });
+  /* Автообновление: 30 с и только когда панель видна и ничего не качается —
+     лишние запросы к API на z.ai приводили к ответам 429. */
+  const iTimerRefresh = setInterval(() =&gt; {
+    if (DEAD) return;
+    if (busy || document.hidden || !panelVisible()) return;
+    idle(() =&gt; { if (!busy) refresh(true); });
+  }, 30000);
+
+  /* Смена чата: всё, что накопилось по прошлому чату, не должно переезжать в
+     новый. Раньше чистились только размеры и ссылки, поэтому в дереве оставались
+     файлы предыдущего чата (а перехваченный трафик и кэш превью продолжали
+     держать память). Теперь сбрасываем состояние целиком. */
+  function resetForNewChat() {
+    SIZEMAP.clear(); SIZE_BY_NAME.clear(); NEG.clear(); URLMAP.clear(); quotaHint = null;
+    captured.clear(); capBytes = 0; scannedSrc.clear(); DISC_PATHS.clear();
+    HARVEST.clear(); harvestSeen.clear();
+    extraUrls.length = 0; cursors.discover = 0; cursors.harvest = 0;
+    perfSeen.clear(); perfIdx = 0;
+    blobs.clear();
+    for (const u of prevCache.values()) { try { URL.revokeObjectURL(u); } catch (e) {} }
+    prevCache.clear(); prevHide();
+    KNOWN.clear(); SEL.clear(); OPEN_DIRS.clear();
+    firstRender = true; curDirSizes = new Map(); TREE_LIMIT = 0;
+    PATH_IDX_GEN++;
+  }
+
+  let lastPath = location.pathname;
+  const iTimerChat = setInterval(() =&gt; {
+    if (DEAD) return;
+    if (location.pathname !== lastPath) {
+      const oldQid = (lastPath.match(/\/[cs]\/([0-9a-f-]{8,})/i) || [])[1];
+      lastPath = location.pathname;
+      if (oldQid !== qid()) resetForNewChat();      // другой чат — файлы прошлого не показываем
+      log('Переход в другой чат — обновляю список автоматически.');
+      refresh(false);
+    }
+  }, 1500);
+
+  /* --------------------------------- старт --------------------------------- */
+  if (IS_ZAI) setZaiTarget();        // режим z.ai нужен сразу, а не после первого списка
+  applySortLabel();
+  applyDock();
+  /* сборка сменилась (или её ещё не записали) — показываем панель, даже если её закрывали */
+  if (UI.build !== WZR_BUILD) { UI.hidden = false; UI.build = WZR_BUILD; saveUI(); }
+  if (UI.hidden) { P.style.display = 'none'; setPageMargin(0); }   // её закрыли в прошлый раз
+  setTab(UI.tab === 'set' ? 'set' : 'main');
+  window.dispatchEvent(new CustomEvent('wzr:ping'));   // спрашиваем мост расширения
+  refresh(false);
+  /* журнал показывает только дело: обновления, сохранения, ошибки */})();
+</pre>
+
+      <h2>4. Кнопки панели</h2>
+      <table>
+        <tr><th>Элемент</th><th>Действие</th></tr>
+        <tr><td>Зелёная шапка</td><td>Потянуть мышью — переместить панель. Скрепка закрепляет её у края, страница сдвигается.</td></tr>
+        <tr><td>◀ ▶</td><td>Прижать панель к левому или правому краю.</td></tr>
+        <tr><td>— / ×</td><td>Свернуть / закрыть панель.</td></tr>
+        <tr><td>ГЛАВНАЯ / НАСТРОЙКИ</td><td>Дерево файлов и настройки (размеры, объём области, диагностика).</td></tr>
+        <tr><td>СОРТ: А-Я</td><td>Порядок в дереве: по алфавиту → по размеру → как отдал сервер.</td></tr>
+        <tr><td>☑</td><td>Отметить всё; повторное нажатие снимает все отметки (рядом с полем фильтра).</td></tr>
+        <tr><td>СКАЧАТЬ ZIP</td><td>Отмеченное — одним архивом со структурой папок; имя берётся по общей папке выделения.</td></tr>
+        <tr><td>СКАЧАТЬ КАК ЕСТЬ</td><td>Каждый отмеченный файл отдельно, в родном формате.</td></tr>
+        <tr><td>ОБНОВИТЬ / СТОП</td><td>Перечитать список · мгновенно отменить скачивание (ничего не сохраняется).</td></tr>
+        <tr><td>АРХИВ ВСЕЙ ОБЛАСТИ</td><td>Только z.ai: сервер собирает ZIP всей рабочей области одним запросом.</td></tr>
+        <tr><td>Журнал</td><td>Ошибки — красным, новые файлы — жёлтым, сохранения — зелёным. Текст выделяется мышью.</td></tr>
+        <tr><td>Правый клик по файлу</td><td>Открыть в новой вкладке · копировать прямую ссылку · скачать · копировать путь.</td></tr>
+        <tr><td>Правый клик по папке</td><td>Оглавление папки (страница-список) · страница чата · копировать путь · отметить/снять.</td></tr>
+      </table>
+
+      <footer>
+        Скрипт работает только на chat.qwen.ai и chat.z.ai, от вашей сессии, и не отправляет данные
+        на сторонние серверы. Файлы упаковываются прямо в браузере.
+      </footer>
+    </div>
+
+    <!-- ================= ПРАВАЯ КОЛОНКА: ПРЕВЬЮ ================= -->
+    <aside class="side" id="preview-slot">
+      <!-- ПРЕВЬЮ ПАНЕЛИ — не удалять (см. правила в комментарии в начале файла) -->
+      <div class="preview" id="preview" data-rule="do-not-remove" aria-label="Превью панели">
+        <div class="pv-caption">так панель выглядит на сайте</div>
+        <div class="pv-panel">
+          <div class="pv-hd">
+            <b>WORKSPACE V1 · QWEN</b>
+            <span class="pv-ico">📌</span><span class="pv-ico">◀</span><span class="pv-ico">▶</span><span class="pv-ico">—</span><span class="pv-ico pv-x">×</span>
+          </div>
+          <div class="pv-tabs">
+            <span class="pv-tab on">ГЛАВНАЯ</span>
+            <span class="pv-tab">НАСТРОЙКИ</span>
+          </div>
+          <div class="pv-body">
+            <div class="pv-mem">память области: занято ~1,28 ГБ из 5 ГБ · свободно ~3,72 ГБ</div>
+            <div class="pv-bar"><i></i></div>
+            <div class="pv-tools">
+              <span class="pv-sort">СОРТ: А-Я</span>
+              <span class="pv-flt">фильтр по пути</span>
+              <span class="pv-mini" title="отметить всё / снять всё">☑</span>
+            </div>
+            <div class="pv-tree">
+              <div class="pv-row"><span class="pv-arw">▾</span><span class="pv-chk">☑</span><span class="pv-dir">📁 src</span><span class="sz">412 КБ</span></div>
+              <div class="pv-row pv-sub"><span class="pv-arw"></span><span class="pv-chk">☑</span><span class="nm">app.js</span><span class="sz">84,2 КБ</span></div>
+              <div class="pv-row pv-sub"><span class="pv-arw"></span><span class="pv-chk">☑</span><span class="nm">styles.css</span><span class="sz">18,7 КБ</span></div>
+              <div class="pv-row"><span class="pv-arw">▾</span><span class="pv-chk">☑</span><span class="pv-dir">📁 assets</span><span class="sz">≈1,1 ГБ</span></div>
+              <div class="pv-row pv-sub"><span class="pv-arw"></span><span class="pv-chk">☑</span><span class="nm">pic.png</span><span class="sz">100 МБ</span></div>
+              <div class="pv-row pv-sub"><span class="pv-arw"></span><span class="pv-chk">☐</span><span class="nm">old.png</span><span class="sz">—</span></div>
+              <div class="pv-row"><span class="pv-arw"></span><span class="pv-chk">☑</span><span class="nm">report.pdf</span><span class="sz">1,28 ГБ</span></div>
+              <div class="pv-more">показано 4000 из 12041 · <b>показать ещё</b> — прокрутка догружает сама</div>
+            </div>
+            <div class="pv-stat">отмечено 6 из 7 · ≈1,28 ГБ | со ссылками: 7</div>
+            <div class="pv-log">
+              <div>Обновлено: путей 7, со ссылками 7.</div>
+              <div class="pv-new">появился новый файл: assets/pic.png</div>
+              <div class="pv-ok">АРХИВ workspace.zip: 6 файлов, 1,2 ГБ</div>
+              <div class="pv-err">ошибка: 404 — assets/old.png</div>
+            </div>
+            <div class="pv-foot">
+              <div class="pv-prog"><i></i></div>
+              <span class="pv-go">СКАЧАТЬ ZIP</span>
+              <span class="pv-go">КАК ЕСТЬ</span>
+              <span>ОБНОВИТЬ</span>
+              <span class="pv-stop">СТОП</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  /* Превью — витрина страницы. Если его удалят из разметки или скроют,
+     возвращаем на место (правила — в комментарии в начале файла). */
+  var host = document.getElementById('preview');
+  if (!host) return;
+  var snapshot = host.outerHTML;
+
+  function restore() {
+    var el = document.getElementById('preview');
+    if (!el) {
+      var slot = document.getElementById('preview-slot') || document.body;
+      var box = document.createElement('div');
+      box.innerHTML = snapshot;
+      if (box.firstElementChild) slot.appendChild(box.firstElementChild);
+      return;
+    }
+    if (el.style.display === 'none') el.style.display = '';
+    if (el.hidden) el.hidden = false;
+  }
+
+  try {
+    new MutationObserver(restore).observe(document.body, { childList: true, attributes: true, attributeFilter: ['style', 'hidden', 'class'] });
+  } catch (e) { /* старый браузер — просто не следим */ }
+  document.addEventListener('DOMContentLoaded', restore);
+})();
+
+(function () {
+  /* Скрипт внутри страницы: копирование и сохранение файлом. */
+  var pre = document.getElementById('code');
+  var missing = document.getElementById('codeMissing');
+  var status = document.getElementById('copyStatus');
+  var copyBtn = document.getElementById('copyBtn');
+  var dlBtn = document.getElementById('dlBtn');
+  var showBtn = document.getElementById('showBtn');
+  if (!pre) return;
+
+  var raw = pre.textContent || '';
+  var built = raw.indexOf('@CODE@') < 0 && raw.length > 1000;
+
+  function say(t) { if (status) status.textContent = t; }
+
+  if (!built) {
+    if (missing) missing.hidden = false;
+    [copyBtn, dlBtn, showBtn].forEach(function (b) { if (b) b.disabled = true; });
+    say('код ещё не встроен в файл — выполните команду из раздела 3');
+    return;
+  }
+
+  say('скрипт внутри файла: ' + raw.length.toLocaleString('ru-RU') + ' символов');
+
+  function copyNow() {
+    var done = function () { say('Скопировано ✓ — вставьте в консоль (Ctrl+V) и нажмите Enter'); };
+    var fallback = function () {
+      try {
+        var r = document.createRange();
+        r.selectNodeContents(pre);
+        var s = window.getSelection();
+        s.removeAllRanges(); s.addRange(r);
+        if (document.execCommand('copy')) done();
+        else say('Не удалось скопировать — выделите код кнопкой «Показать код» и нажмите Ctrl+C');
+      } catch (e) {
+        say('Не удалось скопировать — выделите код кнопкой «Показать код» и нажмите Ctrl+C');
+      }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(raw).then(done, fallback);
+    else fallback();
+  }
+
+  if (copyBtn) copyBtn.addEventListener('click', copyNow);
+
+  if (dlBtn) dlBtn.addEventListener('click', function () {
+    var blob = new Blob([raw], { type: 'text/javascript;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'workspace_rescue.js';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
+    say('Файл сохранён: workspace_rescue.js');
+  });
+
+  if (showBtn) showBtn.addEventListener('click', function () {
+    pre.hidden = !pre.hidden;
+    showBtn.textContent = pre.hidden ? 'Показать код' : 'Скрыть код';
+  });
+})();
+</script>
+</body>
+</html>
